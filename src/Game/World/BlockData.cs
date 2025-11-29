@@ -5,7 +5,8 @@ namespace Game.World;
 public enum BlockType
 {
     Air,
-    Dirt
+    Dirt,
+    Grass
 }
 
 public enum Face
@@ -21,7 +22,7 @@ public enum Face
 public struct FaceData
 {
     public List<Vector3> Vertices;
-    public List<Vector2> Uv;
+    public List<Vector2>? Uv;
 }
 
 public struct FaceDataRaw

@@ -83,6 +83,8 @@ public class MainWindow : GameWindow
 
         if (KeyboardState.IsKeyDown(Keys.Escape))
             Close();
+        if (KeyboardState.IsKeyDown(Keys.F11))
+            WindowState = WindowState == WindowState.Fullscreen ? WindowState.Normal : WindowState.Fullscreen;
         if (MouseState.IsButtonPressed(MouseButton.Left))
             CursorState = CursorState.Grabbed;
         if (MouseState.IsButtonPressed(MouseButton.Right))

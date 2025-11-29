@@ -57,9 +57,17 @@ public class Chunk
                 var columnHeight = (int)(heightMap[x, z] / 10);
                 for (var y = 0; y < Height; y++)
                 {
-                    ChunkBlocks[x, y, z] = y < columnHeight
-                        ? new Block(new Vector3(x, y, z), BlockType.Dirt)
-                        : new Block(new Vector3(x, y, z));
+                    var blockType = BlockType.Air;
+
+                    if (y < columnHeight - 1)
+                    {
+                        blockType = BlockType.Dirt;
+                    } else if (y == columnHeight - 1)
+                    {
+                        blockType = BlockType.Grass;
+                    }
+
+                    ChunkBlocks[x, y, z] = new Block(new Vector3(x, y, z), blockType);
                 }
             }
     }
@@ -69,11 +77,13 @@ public class Chunk
         for (var x = 0; x < Size; x++)
             for (var z = 0; z < Size; z++)
             {
-                var columnHeight = (int)(heightMap[x, z] / 10);
-                for (var y = 0; y < columnHeight; y++)
+                for (var y = 0; y < Height; y++)
                 {
                     var currentBlock = ChunkBlocks[x, y, z];
                     var faceCount = 0;
+
+                    if (currentBlock.Type == BlockType.Air)
+                        continue;
 
                     // --- Top Face ---
                     if (y == Height - 1 || ChunkBlocks[x, y + 1, z].Type == BlockType.Air)
@@ -155,7 +165,7 @@ public class Chunk
 
         _chunkEbo = new Ebo(_chunkIndices);
 
-        _texture = new Texture("dirt.png");
+        _texture = new Texture("atlas.png");
     }
 
     private void IntegrateFace(Block block, Face face)
