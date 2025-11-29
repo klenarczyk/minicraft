@@ -8,29 +8,95 @@ namespace Game;
 
 public class MainWindow : GameWindow
 {
-    private readonly float[] _vertices =
+    private readonly List<Vector3> _vertices =
     [
-        -0.5f, 0.5f, 0f,
-        0.5f, 0.5f, 0f,
-        0.5f, -0.5f, 0f,
-        -0.5f, -0.5f, 0f
+        // Front
+        new(-0.5f, 0.5f, 0.5f),
+        new(0.5f, 0.5f, 0.5f),
+        new(0.5f, -0.5f, 0.5f),
+        new(-0.5f, -0.5f, 0.5f),
+        // Right
+        new(0.5f, 0.5f, 0.5f),
+        new(0.5f, 0.5f, -0.5f),
+        new(0.5f, -0.5f, -0.5f),
+        new(0.5f, -0.5f, 0.5f),
+        // Back
+        new(0.5f, 0.5f, -0.5f),
+        new(-0.5f, 0.5f, -0.5f),
+        new(-0.5f, -0.5f, -0.5f),
+        new(0.5f, -0.5f, -0.5f),
+        // Left
+        new(-0.5f, -0.5f, -0.5f),
+        new(-0.5f, -0.5f, 0.5f),
+        new(-0.5f, 0.5f, 0.5f),
+        new(-0.5f, 0.5f, -0.5f),
+        // Top
+        new(-0.5f, 0.5f, -0.5f),
+        new(0.5f, 0.5f, -0.5f),
+        new(0.5f, 0.5f, 0.5f),
+        new(-0.5f, 0.5f, 0.5f),
+        // Bottom
+        new(0.5f, -0.5f, 0.5f),
+        new(-0.5f, -0.5f, 0.5f),
+        new(-0.5f, -0.5f, -0.5f),
+        new(0.5f, -0.5f, -0.5f)
     ];
 
-    private readonly float[] _texCoords =
+    private readonly List<Vector2> _texCoords =
     [
-        0f, 1f,
-        1f, 1f,
-        1f, 0f,
-        0f, 0f
+        new(0f, 1f),
+        new(1f, 1f),
+        new(1f, 0f),
+        new(0f, 0f),
+
+        new(0f, 1f),
+        new(1f, 1f),
+        new(1f, 0f),
+        new(0f, 0f),
+
+        new(0f, 1f),
+        new(1f, 1f),
+        new(1f, 0f),
+        new(0f, 0f),
+
+        new(0f, 1f),
+        new(1f, 1f),
+        new(1f, 0f),
+        new(0f, 0f),
+
+        new(0f, 1f),
+        new(1f, 1f),
+        new(1f, 0f),
+        new(0f, 0f),
+
+        new(0f, 1f),
+        new(1f, 1f),
+        new(1f, 0f),
+        new(0f, 0f)
     ];
 
     private readonly uint[] _indices =
     [
         0, 1, 2,
-        2, 3, 0
+        2, 3, 0,
+
+        4, 5, 6,
+        6, 7, 4,
+
+        8, 9, 10,
+        10, 11, 8,
+
+        12, 13, 14,
+        14, 15, 12,
+
+        16, 17, 18,
+        18, 19, 16,
+
+        20, 21, 22,
+        22, 23, 20
     ];
 
-    // Render pipeline
+    // Render pipeline variables
     private int _vao;
     private int _vbo;
     private int _ebo;
@@ -38,6 +104,10 @@ public class MainWindow : GameWindow
     private int _textureId;
     private int _textureVbo;
 
+    // Transformation variables
+    private float _yRot = 0f;
+
+    // Window variables
     private int _screenWidth;
     private int _screenHeight;
 
@@ -68,7 +138,7 @@ public class MainWindow : GameWindow
         // --- Vertices VBO (Slot 0) ---
         _vbo = GL.GenBuffer();
         GL.BindBuffer(BufferTarget.ArrayBuffer, _vbo);
-        GL.BufferData(BufferTarget.ArrayBuffer, _vertices.Length * sizeof(float), _vertices, BufferUsageHint.StaticDraw);
+        GL.BufferData(BufferTarget.ArrayBuffer, _vertices.Count * Vector3.SizeInBytes, _vertices.ToArray(), BufferUsageHint.StaticDraw);
 
         // Configure attribute 0 (Position)
         GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
@@ -77,7 +147,7 @@ public class MainWindow : GameWindow
         // --- Texture VBO (Slot 1) ---
         _textureVbo = GL.GenBuffer();
         GL.BindBuffer(BufferTarget.ArrayBuffer, _textureVbo);
-        GL.BufferData(BufferTarget.ArrayBuffer, _texCoords.Length * sizeof(float), _texCoords, BufferUsageHint.StaticDraw);
+        GL.BufferData(BufferTarget.ArrayBuffer, _texCoords.Count * Vector2.SizeInBytes, _texCoords.ToArray(), BufferUsageHint.StaticDraw);
 
         // Configure attribute 1 (Texture Coords)
         GL.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, 2 * sizeof(float), 0);
@@ -137,6 +207,8 @@ public class MainWindow : GameWindow
             PixelType.UnsignedByte, 
             dirtTexture.Data);
         GL.BindTexture(TextureTarget.Texture2D, 0);
+
+        GL.Enable(EnableCap.DepthTest);
     }
 
     protected override void OnUnload()
@@ -154,7 +226,6 @@ public class MainWindow : GameWindow
         // Delete Program and Texture
         GL.DeleteProgram(_shaderProgram);
         GL.DeleteTexture(_textureId);
-        
     }
 
     protected override void OnRenderFrame(FrameEventArgs args)
@@ -162,15 +233,32 @@ public class MainWindow : GameWindow
         base.OnRenderFrame(args);
 
         GL.ClearColor(0.48f, 0.64f, 1f, 1f);
-        GL.Clear(ClearBufferMask.ColorBufferBit);
+        GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
-        // Draw triangle
         GL.UseProgram(_shaderProgram);
+        GL.BindVertexArray(_vao);
+        GL.BindBuffer(BufferTarget.ElementArrayBuffer, _ebo);
 
         GL.BindTexture(TextureTarget.Texture2D, _textureId);
 
-        GL.BindVertexArray(_vao);
-        GL.BindBuffer(BufferTarget.ElementArrayBuffer, _ebo);
+        // Transformation matrices
+        var model = Matrix4.Identity;
+        var view = Matrix4.Identity;
+        var projection = Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(90.0f), (float)_screenWidth / _screenHeight, 0.1f, 100.0f);
+
+        model = Matrix4.CreateRotationY(_yRot);
+        _yRot += 0.001f;
+        var translation = Matrix4.CreateTranslation(0f, 0f, -3f);
+        model *= translation;
+
+        var modelLocation = GL.GetUniformLocation(_shaderProgram, "model");
+        var viewLocation = GL.GetUniformLocation(_shaderProgram, "view");
+        var projectionLocation = GL.GetUniformLocation(_shaderProgram, "projection");
+
+        GL.UniformMatrix4(modelLocation, true, ref model);
+        GL.UniformMatrix4(viewLocation, true, ref view);
+        GL.UniformMatrix4(projectionLocation, true, ref projection);
+
         GL.DrawElements(PrimitiveType.Triangles, _indices.Length, DrawElementsType.UnsignedInt, 0);
 
         Context.SwapBuffers();
