@@ -109,8 +109,8 @@ public class MainWindow : GameWindow
     private Camera _camera = null!;
 
     // Window variables
-    private int _screenWidth;
-    private int _screenHeight;
+    private readonly int _screenWidth;
+    private readonly int _screenHeight;
 
     public MainWindow(int width, int height)
         : base(GameWindowSettings.Default, NativeWindowSettings.Default)
@@ -123,9 +123,11 @@ public class MainWindow : GameWindow
     protected override void OnResize(ResizeEventArgs e)
     {
         base.OnResize(e);
+        
         GL.Viewport(0, 0, e.Width, e.Height);
-        _screenWidth = e.Width;
-        _screenHeight = e.Height;
+
+        _camera?.ScreenWidth = e.Width;
+        _camera?.ScreenHeight = e.Height == 0 ? 1 : e.Height;
     }
 
     protected override void OnLoad()
