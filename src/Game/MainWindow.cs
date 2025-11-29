@@ -1,9 +1,9 @@
-﻿using OpenTK.Graphics.OpenGL4;
+﻿using Game.Graphics;
+using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
-using StbImageSharp;
 
 namespace Game;
 
@@ -76,7 +76,7 @@ public class MainWindow : GameWindow
         new(0f, 0f)
     ];
 
-    private readonly uint[] _indices =
+    private readonly List<uint> _indices =
     [
         0, 1, 2,
         2, 3, 0,
@@ -98,12 +98,10 @@ public class MainWindow : GameWindow
     ];
 
     // Render pipeline variables
-    private int _vao;
-    private int _vbo;
-    private int _ebo;
-    private int _shaderProgram;
-    private int _textureId;
-    private int _textureVbo;
+    private Vao _vao = null!;
+    private Ebo _ebo = null!;
+    private ShaderProgram _program = null!;
+    private Texture _texture = null!;
 
     // Camera
     private Camera _camera = null!;
@@ -120,100 +118,28 @@ public class MainWindow : GameWindow
         _screenHeight = height;
     }
 
-    protected override void OnResize(ResizeEventArgs e)
-    {
-        base.OnResize(e);
-        
-        GL.Viewport(0, 0, e.Width, e.Height);
-
-        _camera?.ScreenWidth = e.Width;
-        _camera?.ScreenHeight = e.Height == 0 ? 1 : e.Height;
-    }
-
     protected override void OnLoad()
     {
         base.OnLoad();
 
-        // Bind VAO
-        _vao = GL.GenVertexArray();
-        GL.BindVertexArray(_vao);
+        _vao = new Vao();
 
-        // --- Vertices VBO (Slot 0) ---
-        _vbo = GL.GenBuffer();
-        GL.BindBuffer(BufferTarget.ArrayBuffer, _vbo);
-        GL.BufferData(BufferTarget.ArrayBuffer, _vertices.Count * Vector3.SizeInBytes, _vertices.ToArray(), BufferUsageHint.StaticDraw);
+        var vertexVbo = new Vbo(_vertices);
+        _vao.LinkToVao(0, 3, vertexVbo);
 
-        // Configure attribute 0 (Position)
-        GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
-        GL.EnableVertexArrayAttrib(_vao, 0);
+        var textureVbo = new Vbo(_texCoords);
+        _vao.LinkToVao(1, 2, textureVbo);
 
-        // --- Texture VBO (Slot 1) ---
-        _textureVbo = GL.GenBuffer();
-        GL.BindBuffer(BufferTarget.ArrayBuffer, _textureVbo);
-        GL.BufferData(BufferTarget.ArrayBuffer, _texCoords.Count * Vector2.SizeInBytes, _texCoords.ToArray(), BufferUsageHint.StaticDraw);
+        _ebo = new Ebo(_indices);
 
-        // Configure attribute 1 (Texture Coords)
-        GL.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, 2 * sizeof(float), 0);
-        GL.EnableVertexArrayAttrib(_vao, 1);
+        _vao.Unbind();
+        _ebo.Unbind();
 
-        // --- EBO ---
-        _ebo = GL.GenBuffer();
-        GL.BindBuffer(BufferTarget.ElementArrayBuffer, _ebo);
-        GL.BufferData(BufferTarget.ElementArrayBuffer, _indices.Length * sizeof(uint), _indices, BufferUsageHint.StaticDraw);
-
-        // Cleanup
-        GL.BindVertexArray(0);
-        GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
-        GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0);
-
-        // --- Shader Program ---
-        _shaderProgram = GL.CreateProgram();
-
-        var vertexShader = GL.CreateShader(ShaderType.VertexShader);
-        GL.ShaderSource(vertexShader, LoadShaderSource("Default.vert"));
-        GL.CompileShader(vertexShader);
-
-        var fragmentShader = GL.CreateShader(ShaderType.FragmentShader);
-        GL.ShaderSource(fragmentShader, LoadShaderSource("Default.frag"));
-        GL.CompileShader(fragmentShader);
-
-        GL.AttachShader(_shaderProgram, vertexShader);
-        GL.AttachShader(_shaderProgram, fragmentShader);
-
-        GL.LinkProgram(_shaderProgram);
-
-        // Delete shaders as they're linked into our program now and no longer necessary
-        GL.DeleteShader(vertexShader);
-        GL.DeleteShader(fragmentShader);
-
-        // --- Textures ---
-        _textureId = GL.GenTexture();
-        GL.ActiveTexture(TextureUnit.Texture0);
-        GL.BindTexture(TextureTarget.Texture2D, _textureId);
-
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
-
-        // Load image
-        StbImage.stbi_set_flip_vertically_on_load(1);
-        var dirtTexture = ImageResult.FromStream(File.OpenRead("./Textures/dirt.png"), ColorComponents.RedGreenBlueAlpha);
-
-        GL.TexImage2D(TextureTarget.Texture2D, 
-            0, 
-            PixelInternalFormat.Rgba, 
-            dirtTexture.Width, 
-            dirtTexture.Height, 
-            0, 
-            PixelFormat.Rgba, 
-            PixelType.UnsignedByte, 
-            dirtTexture.Data);
-        GL.BindTexture(TextureTarget.Texture2D, 0);
+        _program = new ShaderProgram("Default.vert", "Default.frag");
+        _texture = new Texture("dirt.png");
+        _camera = new Camera(_screenWidth, _screenHeight, Vector3.Zero);
 
         GL.Enable(EnableCap.DepthTest);
-
-        _camera = new Camera(_screenWidth, _screenHeight, Vector3.Zero);
         CursorState = CursorState.Grabbed;
     }
 
@@ -221,17 +147,11 @@ public class MainWindow : GameWindow
     {
         base.OnUnload();
 
-        // Delete VAO
-        GL.DeleteVertexArray(_vao);
+        _vao.Delete();
+        _ebo.Delete();
 
-        // Delete Buffer Objects
-        GL.DeleteBuffer(_vbo);
-        GL.DeleteBuffer(_ebo);
-        GL.DeleteBuffer(_textureVbo);
-
-        // Delete Program and Texture
-        GL.DeleteProgram(_shaderProgram);
-        GL.DeleteTexture(_textureId);
+        _program.Delete();
+        _texture.Delete();
     }
 
     protected override void OnRenderFrame(FrameEventArgs args)
@@ -241,11 +161,10 @@ public class MainWindow : GameWindow
         GL.ClearColor(0.48f, 0.64f, 1f, 1f);
         GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
-        GL.UseProgram(_shaderProgram);
-        GL.BindVertexArray(_vao);
-        GL.BindBuffer(BufferTarget.ElementArrayBuffer, _ebo);
-
-        GL.BindTexture(TextureTarget.Texture2D, _textureId);
+        _program.Bind();
+        _vao.Bind();
+        _ebo.Bind();
+        _texture.Bind();
 
         // Transformation matrices
         var model = Matrix4.Identity;
@@ -255,15 +174,15 @@ public class MainWindow : GameWindow
         var translation = Matrix4.CreateTranslation(0f, 0f, -3f);
         model *= translation;
 
-        var modelLocation = GL.GetUniformLocation(_shaderProgram, "model");
-        var viewLocation = GL.GetUniformLocation(_shaderProgram, "view");
-        var projectionLocation = GL.GetUniformLocation(_shaderProgram, "projection");
+        var modelLocation = GL.GetUniformLocation(_program.Id, "model");
+        var viewLocation = GL.GetUniformLocation(_program.Id, "view");
+        var projectionLocation = GL.GetUniformLocation(_program.Id, "projection");
 
         GL.UniformMatrix4(modelLocation, true, ref model);
         GL.UniformMatrix4(viewLocation, true, ref view);
         GL.UniformMatrix4(projectionLocation, true, ref projection);
 
-        GL.DrawElements(PrimitiveType.Triangles, _indices.Length, DrawElementsType.UnsignedInt, 0);
+        GL.DrawElements(PrimitiveType.Triangles, _indices.Count, DrawElementsType.UnsignedInt, 0);
 
         Context.SwapBuffers();
     }
@@ -280,23 +199,13 @@ public class MainWindow : GameWindow
         _camera.Update(KeyboardState, MouseState, args);
     }
 
-    private static string LoadShaderSource(string filePath)
+    protected override void OnResize(ResizeEventArgs e)
     {
-        var baseDir = AppContext.BaseDirectory;
-        var fullPath = Path.Combine(baseDir, "Shaders", filePath);
+        base.OnResize(e);
 
-        var shaderSource = "";
+        GL.Viewport(0, 0, e.Width, e.Height);
 
-        try
-        {
-            using var reader = new StreamReader(fullPath);
-            shaderSource = reader.ReadToEnd();
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine($"Error reading shader file at {fullPath}: {e.Message}");
-        }
-
-        return shaderSource;
+        _camera?.ScreenWidth = e.Width;
+        _camera?.ScreenHeight = e.Height == 0 ? 1 : e.Height;
     }
 }
