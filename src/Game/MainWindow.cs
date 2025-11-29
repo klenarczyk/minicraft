@@ -2,6 +2,7 @@
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
+using OpenTK.Windowing.GraphicsLibraryFramework;
 using StbImageSharp;
 
 namespace Game;
@@ -104,8 +105,8 @@ public class MainWindow : GameWindow
     private int _textureId;
     private int _textureVbo;
 
-    // Transformation variables
-    private float _yRot = 0f;
+    // Camera
+    private Camera _camera = null!;
 
     // Window variables
     private int _screenWidth;
@@ -209,6 +210,9 @@ public class MainWindow : GameWindow
         GL.BindTexture(TextureTarget.Texture2D, 0);
 
         GL.Enable(EnableCap.DepthTest);
+
+        _camera = new Camera(_screenWidth, _screenHeight, Vector3.Zero);
+        CursorState = CursorState.Grabbed;
     }
 
     protected override void OnUnload()
@@ -243,11 +247,9 @@ public class MainWindow : GameWindow
 
         // Transformation matrices
         var model = Matrix4.Identity;
-        var view = Matrix4.Identity;
-        var projection = Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(90.0f), (float)_screenWidth / _screenHeight, 0.1f, 100.0f);
+        var view = _camera.GetViewMatrix();
+        var projection = _camera.GetProjectionMatrix();
 
-        model = Matrix4.CreateRotationY(_yRot);
-        _yRot += 0.001f;
         var translation = Matrix4.CreateTranslation(0f, 0f, -3f);
         model *= translation;
 
@@ -267,6 +269,13 @@ public class MainWindow : GameWindow
     protected override void OnUpdateFrame(FrameEventArgs args)
     {
         base.OnUpdateFrame(args);
+
+        if (KeyboardState.IsKeyDown(Keys.Escape))
+        {
+            Close();
+        }
+
+        _camera.Update(KeyboardState, MouseState, args);
     }
 
     private static string LoadShaderSource(string filePath)

@@ -1,4 +1,4 @@
 ﻿using Game;
 
-using var game = new MainWindow(500, 500);
+using var game = new MainWindow(1280, 720);
 game.Run();
