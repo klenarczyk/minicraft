@@ -5,8 +5,9 @@ namespace Game.World;
 public class Block
 {
     public Vector3 Position;
+    public BlockType Type;
 
-    private readonly Dictionary<Faces, FaceData> _faces;
+    private readonly Dictionary<Face, FaceData> _faces;
     
     private readonly List<Vector2> _dirtUv = 
     [
@@ -16,40 +17,41 @@ public class Block
         new(0f, 0f)
     ];
 
-    public Block(Vector3 position)
+    public Block(Vector3 position, BlockType blockType = BlockType.Air)
     {
         Position = position;
+        Type = blockType;
 
-        _faces = new Dictionary<Faces, FaceData>
+        _faces = new Dictionary<Face, FaceData>
         {
-            {Faces.Front, new FaceData
+            {Face.Front, new FaceData
             {
-                Vertices = AddTransformedVertices(FaceDataRaw.RawVertexData[Faces.Front]),
+                Vertices = AddTransformedVertices(FaceDataRaw.RawVertexData[Face.Front]),
                 Uv = _dirtUv
             }},
-            {Faces.Back, new FaceData
+            {Face.Back, new FaceData
             {
-                Vertices = AddTransformedVertices(FaceDataRaw.RawVertexData[Faces.Back]),
+                Vertices = AddTransformedVertices(FaceDataRaw.RawVertexData[Face.Back]),
                 Uv = _dirtUv
             }},
-            {Faces.Left, new FaceData
+            {Face.Left, new FaceData
             {
-                Vertices = AddTransformedVertices(FaceDataRaw.RawVertexData[Faces.Left]),
+                Vertices = AddTransformedVertices(FaceDataRaw.RawVertexData[Face.Left]),
                 Uv = _dirtUv
             }},
-            {Faces.Right, new FaceData
+            {Face.Right, new FaceData
             {
-                Vertices = AddTransformedVertices(FaceDataRaw.RawVertexData[Faces.Right]),
+                Vertices = AddTransformedVertices(FaceDataRaw.RawVertexData[Face.Right]),
                 Uv = _dirtUv
             }},
-            {Faces.Top, new FaceData
+            {Face.Top, new FaceData
             {
-                Vertices = AddTransformedVertices(FaceDataRaw.RawVertexData[Faces.Top]),
+                Vertices = AddTransformedVertices(FaceDataRaw.RawVertexData[Face.Top]),
                 Uv = _dirtUv
             }},
-            {Faces.Bottom, new FaceData
+            {Face.Bottom, new FaceData
             {
-                Vertices = AddTransformedVertices(FaceDataRaw.RawVertexData[Faces.Bottom]),
+                Vertices = AddTransformedVertices(FaceDataRaw.RawVertexData[Face.Bottom]),
                 Uv = _dirtUv
             }}
         };
@@ -67,7 +69,7 @@ public class Block
         return transformedVertices;
     }
 
-    public FaceData GetFace(Faces face)
+    public FaceData GetFace(Face face)
     {
         return _faces[face];
     }

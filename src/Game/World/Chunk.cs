@@ -7,6 +7,7 @@ namespace Game.World;
 public class Chunk
 {
     public Vector3 Position;
+    public Block[,,] ChunkBlocks = new Block[Size, Height, Size];
 
     private readonly List<Vector3> _chunkVertices = [];
     private readonly List<Vector2> _chunkUvs = [];
@@ -15,7 +16,7 @@ public class Chunk
     private const int Size = 16;
     private const int Height = 32;
 
-    private uint _indexCount = 0;
+    private uint _indexCount;
 
     private Vao _chunkVao = null!;
     private Vbo _chunkVertexVbo = null!;
@@ -28,61 +29,103 @@ public class Chunk
     {
         Position = position;
 
-        GenerateBlocks();
+        var heightMap = GenerateChunk();
+        GenerateBlocks(heightMap);
+        GenerateFaces(heightMap);
+        
         BuildChunk();
     }
 
-    public void GenerateChunk()
+    private static float[,] GenerateChunk()
     {
+        var heightmap = new float[Size, Size];
 
-    }
-
-    public void GenerateBlocks()
-    {
-        for (var i = 0; i < 3; i++)
-        {
-            var block = new Block(new Vector3(i, 0, 0));
-            var faceCount = 0;
-
-            if (i == 0)
+        for (var x = 0; x < Size; x++)
+            for (var z = 0; z < Size; z++)
             {
-                var leftFaceData = block.GetFace(Faces.Left);
-                _chunkVertices.AddRange(leftFaceData.Vertices);
-                _chunkUvs.AddRange(leftFaceData.Uv);
-                faceCount++;
+                heightmap[x, z] = SimplexNoise.Noise.CalcPixel2D(x, z, 0.01f);
             }
 
-            if (i == 2)
-            {
-                var rightFaceData = block.GetFace(Faces.Right);
-                _chunkVertices.AddRange(rightFaceData.Vertices);
-                _chunkUvs.AddRange(rightFaceData.Uv);
-                faceCount++;
-            }
-
-            var frontFaceData = block.GetFace(Faces.Front);
-            _chunkVertices.AddRange(frontFaceData.Vertices);
-            _chunkUvs.AddRange(frontFaceData.Uv);
-
-            var backFaceData = block.GetFace(Faces.Back);
-            _chunkVertices.AddRange(backFaceData.Vertices);
-            _chunkUvs.AddRange(backFaceData.Uv);
-
-            var topFaceData = block.GetFace(Faces.Top);
-            _chunkVertices.AddRange(topFaceData.Vertices);
-            _chunkUvs.AddRange(topFaceData.Uv);
-
-            var bottomFaceData = block.GetFace(Faces.Bottom);
-            _chunkVertices.AddRange(bottomFaceData.Vertices);
-            _chunkUvs.AddRange(bottomFaceData.Uv);
-
-            faceCount += 4;
-
-            AddIndices(faceCount);
-        }
+        return heightmap;
     }
 
-    public void AddIndices(int faceCount)
+    private void GenerateBlocks(float[,] heightMap)
+    {
+        for (var x = 0; x < Size; x++)
+            for (var z = 0; z < Size; z++)
+            {
+                var columnHeight = (int)(heightMap[x, z] / 10);
+                for (var y = 0; y < Height; y++)
+                {
+                    ChunkBlocks[x, y, z] = y < columnHeight
+                        ? new Block(new Vector3(x, y, z), BlockType.Dirt)
+                        : new Block(new Vector3(x, y, z));
+                }
+            }
+    }
+
+    private void GenerateFaces(float[,] heightMap)
+    {
+        for (var x = 0; x < Size; x++)
+            for (var z = 0; z < Size; z++)
+            {
+                var columnHeight = (int)(heightMap[x, z] / 10);
+                for (var y = 0; y < columnHeight; y++)
+                {
+                    var currentBlock = ChunkBlocks[x, y, z];
+                    var faceCount = 0;
+
+                    // --- Top Face ---
+                    if (y == Height - 1 || ChunkBlocks[x, y + 1, z].Type == BlockType.Air)
+                    {
+                        IntegrateFace(currentBlock, Face.Top);
+                        faceCount++;
+                    }
+
+                    // --- Bottom Face ---
+                    if (y == 0 || ChunkBlocks[x, y - 1, z].Type == BlockType.Air)
+                    {
+                        IntegrateFace(currentBlock, Face.Bottom);
+                        faceCount++;
+                    }
+
+                    // --- Front Face ---
+                    if (z == Size - 1 || ChunkBlocks[x, y, z + 1].Type == BlockType.Air)
+                    {
+                        IntegrateFace(currentBlock, Face.Front);
+                        faceCount++;
+                    }
+
+                    // --- Back Face ---
+                    if (z == 0 || ChunkBlocks[x, y, z - 1].Type == BlockType.Air)
+                    {
+                        IntegrateFace(currentBlock, Face.Back);
+                        faceCount++;
+                    }
+
+                    // --- Left Face ---
+                    if (x == 0 || ChunkBlocks[x - 1, y, z].Type == BlockType.Air)
+                    {
+                        IntegrateFace(currentBlock, Face.Left);
+                        faceCount++;
+                    }
+
+                    // --- Right Face ---
+                    if (x == Size - 1 || ChunkBlocks[x + 1, y, z].Type == BlockType.Air)
+                    {
+                        IntegrateFace(currentBlock, Face.Right);
+                        faceCount++;
+                    }
+
+                    if (faceCount > 0)
+                    {
+                        AddIndices(faceCount);
+                    }
+                }
+            }
+    }
+
+    private void AddIndices(int faceCount)
     {
         for (var i = 0; i < faceCount; i++)
         {
@@ -97,7 +140,7 @@ public class Chunk
         }
     }
 
-    public void BuildChunk()
+    private void BuildChunk()
     {
         _chunkVao = new Vao();
         _chunkVao.Bind();
@@ -113,6 +156,13 @@ public class Chunk
         _chunkEbo = new Ebo(_chunkIndices);
 
         _texture = new Texture("dirt.png");
+    }
+
+    private void IntegrateFace(Block block, Face face)
+    {
+        var faceData = block.GetFace(face);
+        _chunkVertices.AddRange(faceData.Vertices);
+        _chunkUvs.AddRange(faceData.Uv);
     }
 
     public void Render(ShaderProgram program)

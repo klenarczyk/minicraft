@@ -6,7 +6,7 @@ namespace Game;
 
 public class Camera(float width, float height, Vector3 position)
 {
-    private const float Speed = 8f;
+    private const float Speed = 20f;
     private const float Sensitivity = 0.1f;
     private const float Fov = 45f;
 

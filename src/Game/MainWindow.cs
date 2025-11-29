@@ -32,9 +32,15 @@ public class MainWindow : GameWindow
 
         _chunk = new Chunk(Vector3.Zero);
         _program = new ShaderProgram("Default.vert", "Default.frag");
-        _camera = new Camera(_screenWidth, _screenHeight, Vector3.Zero);
+        _camera = new Camera(_screenWidth, _screenHeight, new Vector3(0f, 20f, 0f));
 
         GL.Enable(EnableCap.DepthTest);
+
+        // Only render triangles where the vertices are defined in a clockwise order
+        GL.FrontFace(FrontFaceDirection.Cw);
+        GL.Enable(EnableCap.CullFace);
+        GL.CullFace(TriangleFace.Back);
+
         CursorState = CursorState.Grabbed;
     }
 
@@ -76,9 +82,11 @@ public class MainWindow : GameWindow
         base.OnUpdateFrame(args);
 
         if (KeyboardState.IsKeyDown(Keys.Escape))
-        {
             Close();
-        }
+        if (MouseState.IsButtonPressed(MouseButton.Left))
+            CursorState = CursorState.Grabbed;
+        if (MouseState.IsButtonPressed(MouseButton.Right))
+            CursorState = CursorState.Normal;
 
         _camera.Update(KeyboardState, MouseState, args);
     }

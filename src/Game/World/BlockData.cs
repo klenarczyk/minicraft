@@ -2,7 +2,13 @@
 
 namespace Game.World;
 
-public enum Faces
+public enum BlockType
+{
+    Air,
+    Dirt
+}
+
+public enum Face
 {
     Front,
     Back,
@@ -20,48 +26,48 @@ public struct FaceData
 
 public struct FaceDataRaw
 {
-    public static readonly Dictionary<Faces, List<Vector3>> RawVertexData = new()
+    public static readonly Dictionary<Face, List<Vector3>> RawVertexData = new()
     {
-        {Faces.Front, [
+        {Face.Front, [
                 new Vector3(-0.5f, 0.5f, 0.5f),
                 new Vector3(0.5f, 0.5f, 0.5f),
                 new Vector3(0.5f, -0.5f, 0.5f),
                 new Vector3(-0.5f, -0.5f, 0.5f)
             ]
         },
-        {Faces.Right, [
+        {Face.Right, [
                 new Vector3(0.5f, 0.5f, 0.5f),
                 new Vector3(0.5f, 0.5f, -0.5f),
                 new Vector3(0.5f, -0.5f, -0.5f),
                 new Vector3(0.5f, -0.5f, 0.5f)
             ]
         },
-        {Faces.Back, [
+        {Face.Back, [
                 new Vector3(0.5f, 0.5f, -0.5f),
                 new Vector3(-0.5f, 0.5f, -0.5f),
                 new Vector3(-0.5f, -0.5f, -0.5f),
                 new Vector3(0.5f, -0.5f, -0.5f)
             ]
         },
-        {Faces.Left, [
-                new Vector3(-0.5f, -0.5f, -0.5f),
-                new Vector3(-0.5f, -0.5f, 0.5f),
+        {Face.Left, [
+                new Vector3(-0.5f, 0.5f, -0.5f),
                 new Vector3(-0.5f, 0.5f, 0.5f),
-                new Vector3(-0.5f, 0.5f, -0.5f)
+                new Vector3(-0.5f, -0.5f, 0.5f),
+                new Vector3(-0.5f, -0.5f, -0.5f)
             ]
         },
-        {Faces.Top, [
+        {Face.Top, [
                 new Vector3(-0.5f, 0.5f, -0.5f),
                 new Vector3(0.5f, 0.5f, -0.5f),
                 new Vector3(0.5f, 0.5f, 0.5f),
                 new Vector3(-0.5f, 0.5f, 0.5f)
             ]
         },
-        {Faces.Bottom, [
-                new Vector3(0.5f, -0.5f, 0.5f),
-                new Vector3(-0.5f, -0.5f, 0.5f),
+        {Face.Bottom, [
+                new Vector3(0.5f, -0.5f, -0.5f),
                 new Vector3(-0.5f, -0.5f, -0.5f),
-                new Vector3(0.5f, -0.5f, -0.5f)
+                new Vector3(-0.5f, -0.5f, 0.5f),
+                new Vector3(0.5f, -0.5f, 0.5f)
             ]
         }
     };
