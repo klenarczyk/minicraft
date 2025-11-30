@@ -2,13 +2,6 @@
 
 namespace Game.World;
 
-public enum BlockType
-{
-    Air,
-    Dirt,
-    Grass
-}
-
 public enum Face
 {
     Front,
@@ -19,13 +12,7 @@ public enum Face
     Bottom
 }
 
-public struct FaceData
-{
-    public List<Vector3> Vertices;
-    public List<Vector2>? Uv;
-}
-
-public struct FaceDataRaw
+public static class BlockGeometry
 {
     public static readonly Dictionary<Face, List<Vector3>> RawVertexData = new()
     {

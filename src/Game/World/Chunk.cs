@@ -7,7 +7,7 @@ namespace Game.World;
 public class Chunk
 {
     public Vector3 Position;
-    public Block[,,] ChunkBlocks = new Block[Size, Height, Size];
+    public BlockType[,,] ChunkBlocks = new BlockType[Size, Height, Size];
 
     private readonly List<Vector3> _chunkVertices = [];
     private readonly List<Vector2> _chunkUvs = [];
@@ -30,8 +30,9 @@ public class Chunk
         Position = position;
 
         var heightMap = GenerateChunk();
+        
         GenerateBlocks(heightMap);
-        GenerateFaces(heightMap);
+        GenerateFaces();
         
         BuildChunk();
     }
@@ -41,10 +42,10 @@ public class Chunk
         var heightmap = new float[Size, Size];
 
         for (var x = 0; x < Size; x++)
-            for (var z = 0; z < Size; z++)
-            {
-                heightmap[x, z] = SimplexNoise.Noise.CalcPixel2D(x, z, 0.01f);
-            }
+        for (var z = 0; z < Size; z++)
+        {
+            heightmap[x, z] = SimplexNoise.Noise.CalcPixel2D(x, z, 0.01f);
+        }
 
         return heightmap;
     }
@@ -52,102 +53,97 @@ public class Chunk
     private void GenerateBlocks(float[,] heightMap)
     {
         for (var x = 0; x < Size; x++)
-            for (var z = 0; z < Size; z++)
+        for (var z = 0; z < Size; z++)
+        {
+            var columnHeight = (int)(heightMap[x, z] / 10);
+            for (var y = 0; y < Height; y++)
             {
-                var columnHeight = (int)(heightMap[x, z] / 10);
-                for (var y = 0; y < Height; y++)
+                var blockType = BlockType.Air;
+
+                if (y < columnHeight - 1)
                 {
-                    var blockType = BlockType.Air;
-
-                    if (y < columnHeight - 1)
-                    {
-                        blockType = BlockType.Dirt;
-                    } else if (y == columnHeight - 1)
-                    {
-                        blockType = BlockType.Grass;
-                    }
-
-                    ChunkBlocks[x, y, z] = new Block(new Vector3(x, y, z), blockType);
+                    blockType = BlockType.Dirt;
+                } else if (y == columnHeight - 1)
+                {
+                    blockType = BlockType.Grass;
                 }
+
+                ChunkBlocks[x, y, z] = blockType;
             }
+        }
     }
 
-    private void GenerateFaces(float[,] heightMap)
+    private void GenerateFaces()
     {
         for (var x = 0; x < Size; x++)
-            for (var z = 0; z < Size; z++)
-            {
-                for (var y = 0; y < Height; y++)
-                {
-                    var currentBlock = ChunkBlocks[x, y, z];
-                    var faceCount = 0;
+        for (var y = 0; y < Height; y++)
+        for (var z = 0; z < Size; z++)
+        {
+            var blockType = ChunkBlocks[x, y, z];
+            if (blockType == BlockType.Air) continue;
 
-                    if (currentBlock.Type == BlockType.Air)
-                        continue;
+            var blockDef = BlockRegistry.Get(blockType);
 
-                    // --- Top Face ---
-                    if (y == Height - 1 || ChunkBlocks[x, y + 1, z].Type == BlockType.Air)
-                    {
-                        IntegrateFace(currentBlock, Face.Top);
-                        faceCount++;
-                    }
+            // --- Front ---
+            if (ShouldRenderFace(x, y, z + 1))
+                AddFaceData(x, y, z, Face.Front, blockDef);
 
-                    // --- Bottom Face ---
-                    if (y == 0 || ChunkBlocks[x, y - 1, z].Type == BlockType.Air)
-                    {
-                        IntegrateFace(currentBlock, Face.Bottom);
-                        faceCount++;
-                    }
+            // --- Back ---
+            if (ShouldRenderFace(x, y, z - 1))
+                AddFaceData(x, y, z, Face.Back, blockDef);
 
-                    // --- Front Face ---
-                    if (z == Size - 1 || ChunkBlocks[x, y, z + 1].Type == BlockType.Air)
-                    {
-                        IntegrateFace(currentBlock, Face.Front);
-                        faceCount++;
-                    }
+            // --- Left ---
+            if (ShouldRenderFace(x - 1, y, z))
+                AddFaceData(x, y, z, Face.Left, blockDef);
 
-                    // --- Back Face ---
-                    if (z == 0 || ChunkBlocks[x, y, z - 1].Type == BlockType.Air)
-                    {
-                        IntegrateFace(currentBlock, Face.Back);
-                        faceCount++;
-                    }
+            // --- Right ---
+            if (ShouldRenderFace(x + 1, y, z))
+                AddFaceData(x, y, z, Face.Right, blockDef);
 
-                    // --- Left Face ---
-                    if (x == 0 || ChunkBlocks[x - 1, y, z].Type == BlockType.Air)
-                    {
-                        IntegrateFace(currentBlock, Face.Left);
-                        faceCount++;
-                    }
+            // --- Top ---
+            if (ShouldRenderFace(x, y + 1, z))
+                AddFaceData(x, y, z, Face.Top, blockDef);
 
-                    // --- Right Face ---
-                    if (x == Size - 1 || ChunkBlocks[x + 1, y, z].Type == BlockType.Air)
-                    {
-                        IntegrateFace(currentBlock, Face.Right);
-                        faceCount++;
-                    }
-
-                    if (faceCount > 0)
-                    {
-                        AddIndices(faceCount);
-                    }
-                }
-            }
+            // --- Bottom ---
+            if (ShouldRenderFace(x, y - 1, z))
+                AddFaceData(x, y, z, Face.Bottom, blockDef);
+        }
     }
 
-    private void AddIndices(int faceCount)
+    private bool ShouldRenderFace(int neighborX, int neighborY, int neighborZ)
     {
-        for (var i = 0; i < faceCount; i++)
-        {
-            _chunkIndices.Add(0 + _indexCount);
-            _chunkIndices.Add(1 + _indexCount);
-            _chunkIndices.Add(2 + _indexCount);
-            _chunkIndices.Add(2 + _indexCount);
-            _chunkIndices.Add(3 + _indexCount);
-            _chunkIndices.Add(0 + _indexCount);
+        if (neighborX < 0 || neighborX >= Size || neighborY < 0 || neighborY >= Height || neighborZ < 0 || neighborZ >= Size)
+            return true;
 
-            _indexCount += 4;
-        }
+        var neighborType = ChunkBlocks[neighborX, neighborY, neighborZ];
+        var neighborDef = BlockRegistry.Get(neighborType);
+
+        return !neighborDef.IsSolid;
+    }
+
+    private void AddFaceData(int x, int y, int z, Face face, BlockDefinition blockDef)
+    {
+        var rawVerts = BlockGeometry.RawVertexData[face];
+
+        foreach (var vert in rawVerts)
+            _chunkVertices.Add(vert + new Vector3(x, y, z));
+
+        var uvs = blockDef.GetUvs(face);
+        _chunkUvs.AddRange(uvs);
+
+        AddIndices();
+    }
+
+    private void AddIndices()
+    {
+        _chunkIndices.Add(0 + _indexCount);
+        _chunkIndices.Add(1 + _indexCount);
+        _chunkIndices.Add(2 + _indexCount);
+        _chunkIndices.Add(2 + _indexCount);
+        _chunkIndices.Add(3 + _indexCount);
+        _chunkIndices.Add(0 + _indexCount);
+
+        _indexCount += 4;
     }
 
     private void BuildChunk()
@@ -168,19 +164,14 @@ public class Chunk
         _texture = new Texture("atlas.png");
     }
 
-    private void IntegrateFace(Block block, Face face)
-    {
-        var faceData = block.GetFace(face);
-        _chunkVertices.AddRange(faceData.Vertices);
-        _chunkUvs.AddRange(faceData.Uv);
-    }
-
     public void Render(ShaderProgram program)
     {
         program.Bind();
+
         _chunkVao.Bind();
         _chunkEbo.Bind();
         _texture.Bind();
+
         GL.DrawElements(BeginMode.Triangles, _chunkIndices.Count, DrawElementsType.UnsignedInt, 0);
     }
 
