@@ -1,4 +1,5 @@
 ﻿using Game.Graphics;
+using Libs;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 
@@ -14,7 +15,7 @@ public class Chunk
     private readonly List<uint> _chunkIndices = [];
 
     private const int Size = 16;
-    private const int Height = 32;
+    private const int Height = 256;
 
     private uint _indexCount;
 
@@ -37,25 +38,33 @@ public class Chunk
         BuildChunk();
     }
 
-    private static float[,] GenerateChunk()
+    private static int[,] GenerateChunk()
     {
-        var heightmap = new float[Size, Size];
+        var heightmap = new int[Size, Size];
+
+        var noise = new FastNoiseLite();
+        noise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
+        noise.SetFrequency(0.01f);
+
+        const int baseHeight = 20;
+        const int amplitude = 5;
 
         for (var x = 0; x < Size; x++)
         for (var z = 0; z < Size; z++)
         {
-            heightmap[x, z] = SimplexNoise.Noise.CalcPixel2D(x, z, 0.01f);
+            var rawNoise = noise.GetNoise(x, z);
+            heightmap[x, z] = (int)(baseHeight + rawNoise * amplitude);
         }
 
         return heightmap;
     }
 
-    private void GenerateBlocks(float[,] heightMap)
+    private void GenerateBlocks(int[,] heightMap)
     {
         for (var x = 0; x < Size; x++)
         for (var z = 0; z < Size; z++)
         {
-            var columnHeight = (int)(heightMap[x, z] / 10);
+            var columnHeight = heightMap[x, z];
             for (var y = 0; y < Height; y++)
             {
                 var blockType = BlockType.Air;
