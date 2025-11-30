@@ -5,12 +5,15 @@ namespace Game.Graphics;
 public class Ebo
 {
     public int Id;
+    public int Count { get; }
 
-    public Ebo(List<uint> data)
+    public Ebo(List<uint> indices)
     {
         Id = GL.GenBuffer();
-        GL.BindBuffer(BufferTarget.ElementArrayBuffer, Id);
-        GL.BufferData(BufferTarget.ElementArrayBuffer, data.Count * sizeof(uint), data.ToArray(),
+        Count = indices.Count;
+
+        Bind();
+        GL.BufferData(BufferTarget.ElementArrayBuffer, indices.Count * sizeof(uint), indices.ToArray(),
             BufferUsageHint.StaticDraw);
     }
 

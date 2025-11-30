@@ -5,40 +5,66 @@ using OpenTK.Mathematics;
 
 namespace Game.World;
 
-public class Chunk
+public class Chunk(Vector2i position)
 {
-    public Vector3 Position;
-    public BlockType[,,] ChunkBlocks = new BlockType[Size, Height, Size];
+    public readonly Vector2i Position = position;
+    public BlockType[,,] Blocks = new BlockType[Size, Height, Size];
 
-    private readonly List<Vector3> _chunkVertices = [];
-    private readonly List<Vector2> _chunkUvs = [];
-    private readonly List<uint> _chunkIndices = [];
+    // Data calculated by worker threads
+    private readonly List<Vector3> _vertices = [];
+    private readonly List<Vector2> _uvs = [];
+    private readonly List<uint> _indices = [];
 
     private const int Size = 16;
     private const int Height = 256;
 
     private uint _indexCount;
 
-    private Vao _chunkVao = null!;
-    private Vbo _chunkVertexVbo = null!;
-    private Vbo _chunkUvVbo = null!;
-    private Ebo _chunkEbo = null!;
+    // OpenGL objects (Main thread only)
+    private Vao? _vao;
+    private Vbo? _vboVerts;
+    private Vbo? _vboUvs;
+    private Ebo? _ebo;
 
-    private Texture _texture = null!;
+    public bool IsMeshGenerated { get; private set; }
+    public bool IsActive { get; private set; }
 
-    public Chunk(Vector3 position)
+    // Worker thread method
+    public void GenerateMesh()
     {
-        Position = position;
-
-        var heightMap = GenerateChunk();
-        
+        var heightMap = GenerateHeightmap();
         GenerateBlocks(heightMap);
         GenerateFaces();
-        
-        BuildChunk();
+
+        IsMeshGenerated = true;
     }
 
-    private static int[,] GenerateChunk()
+    // Main thread method
+    public void UploadMesh()
+    {
+        if (!IsMeshGenerated) return;
+
+        _vao = new Vao();
+        _vao.Bind();
+
+        _vboVerts = new Vbo(_vertices);
+        _vboVerts.Bind();
+        _vao.LinkToVao(0, 3, _vboVerts);
+
+        _vboUvs = new Vbo(_uvs);
+        _vboUvs.Bind();
+        _vao.LinkToVao(1, 2, _vboUvs);
+
+        _ebo = new Ebo(_indices);
+
+        _vertices.Clear();
+        _uvs.Clear();
+        _indices.Clear();
+
+        IsActive = true;
+    }
+
+    private int[,] GenerateHeightmap()
     {
         var heightmap = new int[Size, Size];
 
@@ -52,10 +78,9 @@ public class Chunk
         for (var x = 0; x < Size; x++)
         for (var z = 0; z < Size; z++)
         {
-            var rawNoise = noise.GetNoise(x, z);
+            var rawNoise = noise.GetNoise(Position.X + x, Position.Y + z);
             heightmap[x, z] = (int)(baseHeight + rawNoise * amplitude);
         }
-
         return heightmap;
     }
 
@@ -77,7 +102,7 @@ public class Chunk
                     blockType = BlockType.Grass;
                 }
 
-                ChunkBlocks[x, y, z] = blockType;
+                Blocks[x, y, z] = blockType;
             }
         }
     }
@@ -88,34 +113,14 @@ public class Chunk
         for (var y = 0; y < Height; y++)
         for (var z = 0; z < Size; z++)
         {
-            var blockType = ChunkBlocks[x, y, z];
-            if (blockType == BlockType.Air) continue;
+            if (Blocks[x, y, z] == BlockType.Air) continue;
 
-            var blockDef = BlockRegistry.Get(blockType);
-
-            // --- Front ---
-            if (ShouldRenderFace(x, y, z + 1))
-                AddFaceData(x, y, z, Face.Front, blockDef);
-
-            // --- Back ---
-            if (ShouldRenderFace(x, y, z - 1))
-                AddFaceData(x, y, z, Face.Back, blockDef);
-
-            // --- Left ---
-            if (ShouldRenderFace(x - 1, y, z))
-                AddFaceData(x, y, z, Face.Left, blockDef);
-
-            // --- Right ---
-            if (ShouldRenderFace(x + 1, y, z))
-                AddFaceData(x, y, z, Face.Right, blockDef);
-
-            // --- Top ---
-            if (ShouldRenderFace(x, y + 1, z))
-                AddFaceData(x, y, z, Face.Top, blockDef);
-
-            // --- Bottom ---
-            if (ShouldRenderFace(x, y - 1, z))
-                AddFaceData(x, y, z, Face.Bottom, blockDef);
+            if (ShouldRenderFace(x, y, z + 1)) AddFaceData(x, y, z, Face.Front);
+            if (ShouldRenderFace(x, y, z - 1)) AddFaceData(x, y, z, Face.Back);
+            if (ShouldRenderFace(x - 1, y, z)) AddFaceData(x, y, z, Face.Left);
+            if (ShouldRenderFace(x + 1, y, z)) AddFaceData(x, y, z, Face.Right);
+            if (ShouldRenderFace(x, y + 1, z)) AddFaceData(x, y, z, Face.Top);
+            if (ShouldRenderFace(x, y - 1, z)) AddFaceData(x, y, z, Face.Bottom);
         }
     }
 
@@ -124,72 +129,57 @@ public class Chunk
         if (neighborX < 0 || neighborX >= Size || neighborY < 0 || neighborY >= Height || neighborZ < 0 || neighborZ >= Size)
             return true;
 
-        var neighborType = ChunkBlocks[neighborX, neighborY, neighborZ];
+        var neighborType = Blocks[neighborX, neighborY, neighborZ];
         var neighborDef = BlockRegistry.Get(neighborType);
 
         return !neighborDef.IsSolid;
     }
 
-    private void AddFaceData(int x, int y, int z, Face face, BlockDefinition blockDef)
+    private void AddFaceData(int x, int y, int z, Face face)
     {
+        var blockDef = BlockRegistry.Get(Blocks[x, y, z]);
         var rawVerts = BlockGeometry.RawVertexData[face];
 
         foreach (var vert in rawVerts)
-            _chunkVertices.Add(vert + new Vector3(x, y, z));
+            _vertices.Add(vert + new Vector3(Position.X + x, y, Position.Y + z));
 
         var uvs = blockDef.GetUvs(face);
-        _chunkUvs.AddRange(uvs);
+        _uvs.AddRange(uvs);
 
         AddIndices();
     }
 
     private void AddIndices()
     {
-        _chunkIndices.Add(0 + _indexCount);
-        _chunkIndices.Add(1 + _indexCount);
-        _chunkIndices.Add(2 + _indexCount);
-        _chunkIndices.Add(2 + _indexCount);
-        _chunkIndices.Add(3 + _indexCount);
-        _chunkIndices.Add(0 + _indexCount);
+        _indices.Add(0 + _indexCount);
+        _indices.Add(1 + _indexCount);
+        _indices.Add(2 + _indexCount);
+        _indices.Add(2 + _indexCount);
+        _indices.Add(3 + _indexCount);
+        _indices.Add(0 + _indexCount);
 
         _indexCount += 4;
     }
 
-    private void BuildChunk()
+    public void Render(ShaderProgram program, Texture textureAtlas)
     {
-        _chunkVao = new Vao();
-        _chunkVao.Bind();
+        if (!IsActive) return;
 
-        _chunkVertexVbo = new Vbo(_chunkVertices);
-        _chunkVertexVbo.Bind();
-        _chunkVao.LinkToVao(0, 3, _chunkVertexVbo);
-
-        _chunkUvVbo = new Vbo(_chunkUvs);
-        _chunkUvVbo.Bind();
-        _chunkVao.LinkToVao(1, 2, _chunkUvVbo);
-
-        _chunkEbo = new Ebo(_chunkIndices);
-
-        _texture = new Texture("atlas.png");
-    }
-
-    public void Render(ShaderProgram program)
-    {
         program.Bind();
+        _vao!.Bind();
+        _ebo!.Bind();
+        textureAtlas.Bind();
 
-        _chunkVao.Bind();
-        _chunkEbo.Bind();
-        _texture.Bind();
-
-        GL.DrawElements(BeginMode.Triangles, _chunkIndices.Count, DrawElementsType.UnsignedInt, 0);
+        GL.DrawElements(BeginMode.Triangles, _ebo.Count, DrawElementsType.UnsignedInt, 0);
     }
 
     public void Delete()
     {
-        _chunkVao.Delete();
-        _chunkVertexVbo.Delete();
-        _chunkUvVbo.Delete();
-        _chunkEbo.Delete();
-        _texture.Delete();
+        if (!IsActive) return;
+
+        _vao?.Delete();
+        _vboVerts?.Delete();
+        _vboUvs?.Delete();
+        _ebo?.Delete();
     }
 }

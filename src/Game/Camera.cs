@@ -6,7 +6,7 @@ namespace Game;
 
 public class Camera(float width, float height, Vector3 position)
 {
-    private const float Speed = 20f;
+    private float _speed = 20f;
     private const float Sensitivity = 0.1f;
     private const float Fov = 45f;
 
@@ -30,7 +30,7 @@ public class Camera(float width, float height, Vector3 position)
 
     public Matrix4 GetProjectionMatrix()
     {
-        return Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(Fov), ScreenWidth / ScreenHeight, 0.1f, 100f);
+        return Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(Fov), ScreenWidth / ScreenHeight, 0.1f, 200f);
     }
 
     private void UpdateVectors()
@@ -57,28 +57,33 @@ public class Camera(float width, float height, Vector3 position)
     {
         if (input.IsKeyDown(Keys.W))
         {
-            Position += _front * Speed * (float)e.Time;
+            Position += _front * _speed * (float)e.Time;
         }
         if (input.IsKeyDown(Keys.A))
         {
-            Position -= _right * Speed * (float)e.Time;
+            Position -= _right * _speed * (float)e.Time;
         }
         if (input.IsKeyDown(Keys.S))
         {
-            Position -= _front * Speed * (float)e.Time;
+            Position -= _front * _speed * (float)e.Time;
         }
         if (input.IsKeyDown(Keys.D))
         {
-            Position += _right * Speed * (float)e.Time;
+            Position += _right * _speed * (float)e.Time;
         }
 
         if (input.IsKeyDown(Keys.Space))
         {
-            Position.Y += Speed * (float)e.Time;
+            Position.Y += _speed * (float)e.Time;
         }
         if (input.IsKeyDown(Keys.LeftControl))
         {
-            Position.Y -= Speed * (float)e.Time;
+            Position.Y -= _speed * (float)e.Time;
+        }
+
+        if (mouse.ScrollDelta != Vector2.Zero)
+        {
+            _speed += mouse.ScrollDelta.Y;
         }
 
         var deltaX = mouse.Delta.X;

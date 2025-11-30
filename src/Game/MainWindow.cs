@@ -10,11 +10,10 @@ namespace Game;
 
 public class MainWindow : GameWindow
 {
-    private Chunk _chunk = null!;
-    private ShaderProgram _program = null!;
-    private Camera _camera = null!;
+    private WorldManager? _world;
+    private ShaderProgram? _program;
+    private Camera? _camera;
 
-    // Window variables
     private readonly int _screenWidth;
     private readonly int _screenHeight;
 
@@ -30,13 +29,13 @@ public class MainWindow : GameWindow
     {
         base.OnLoad();
 
-        _chunk = new Chunk(Vector3.Zero);
+        var startingPos = new Vector3(0f, 20f, 0f);
+        _world = new WorldManager(startingPos);
         _program = new ShaderProgram("Default.vert", "Default.frag");
-        _camera = new Camera(_screenWidth, _screenHeight, new Vector3(0f, 20f, 0f));
+        _camera = new Camera(_screenWidth, _screenHeight, startingPos);
 
         GL.Enable(EnableCap.DepthTest);
 
-        // Only render triangles where the vertices are defined in a clockwise order
         GL.FrontFace(FrontFaceDirection.Cw);
         GL.Enable(EnableCap.CullFace);
         GL.CullFace(TriangleFace.Back);
@@ -48,13 +47,15 @@ public class MainWindow : GameWindow
     {
         base.OnUnload();
 
-        _chunk.Delete();
-        _program.Delete();
+        _world?.Delete();
+        _program?.Delete();
     }
 
     protected override void OnRenderFrame(FrameEventArgs args)
     {
         base.OnRenderFrame(args);
+
+        if (_camera == null || _program == null || _world == null) return;
 
         GL.ClearColor(0.48f, 0.64f, 1f, 1f);
         GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
@@ -72,7 +73,7 @@ public class MainWindow : GameWindow
         GL.UniformMatrix4(viewLocation, true, ref view);
         GL.UniformMatrix4(projectionLocation, true, ref projection);
 
-        _chunk.Render(_program);
+        _world.Render(_program, _camera.Position);
 
         Context.SwapBuffers();
     }
@@ -90,7 +91,7 @@ public class MainWindow : GameWindow
         if (MouseState.IsButtonPressed(MouseButton.Right))
             CursorState = CursorState.Normal;
 
-        _camera.Update(KeyboardState, MouseState, args);
+        _camera?.Update(KeyboardState, MouseState, args);
     }
 
     protected override void OnResize(ResizeEventArgs e)
