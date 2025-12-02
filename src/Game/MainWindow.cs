@@ -82,21 +82,27 @@ public class MainWindow : GameWindow
     {
         base.OnUpdateFrame(args);
 
-        if (KeyboardState.IsKeyDown(Keys.Escape))
+        if (!IsFocused) return;
+
+        if (KeyboardState.IsKeyPressed(Keys.Escape))
             Close();
-        if (KeyboardState.IsKeyDown(Keys.F11))
+        if (KeyboardState.IsKeyPressed(Keys.F11))
             WindowState = WindowState == WindowState.Fullscreen ? WindowState.Normal : WindowState.Fullscreen;
         if (MouseState.IsButtonPressed(MouseButton.Left))
             CursorState = CursorState.Grabbed;
         if (MouseState.IsButtonPressed(MouseButton.Right))
             CursorState = CursorState.Normal;
 
-        _camera?.Update(KeyboardState, MouseState, args);
+        if (CursorState == CursorState.Grabbed)
+        {
+            _camera?.Update(KeyboardState, MouseState, args);
+        }
     }
 
     protected override void OnResize(ResizeEventArgs e)
     {
         base.OnResize(e);
+        if (e.Width == 0 || e.Height == 0) return;
 
         GL.Viewport(0, 0, e.Width, e.Height);
 

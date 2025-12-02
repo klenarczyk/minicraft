@@ -30,6 +30,9 @@ public class Camera(float width, float height, Vector3 position)
 
     public Matrix4 GetProjectionMatrix()
     {
+        if (ScreenWidth <= 0 || ScreenHeight <= 0)
+            return Matrix4.Identity;
+
         return Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(Fov), ScreenWidth / ScreenHeight, 0.1f, 200f);
     }
 
