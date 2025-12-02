@@ -12,6 +12,7 @@ public class WorldManager
     private const int RenderDistance = 8;
     private const int LoadDistance = RenderDistance + 1;
     private const int ChunkSize = 16;
+    private const int ChunkHeight = 256;
 
     private readonly Vector2i[] _chunkUpdatePattern;
     private Vector2i _lastChunkCoord;
@@ -198,5 +199,22 @@ public class WorldManager
         }
         _activeChunks.Clear();
         _textureAtlas.Delete();
+    }
+
+    public BlockType GetBlockAt(Vector3 position)
+    {
+        var chunkCoords = WorldToChunkCoords(position);
+        if (!_activeChunks.TryGetValue(chunkCoords, out var chunk))
+            return BlockType.Air;
+
+        var localX = (int)(MathF.Floor(position.X) % ChunkSize);
+        var localY = (int)(MathF.Floor(position.Y));
+        var localZ = (int)(MathF.Floor(position.Z) % ChunkSize);
+
+        if (localX < 0) localX += ChunkSize;
+        if (localY is < 0 or >= ChunkHeight) return BlockType.Air;
+        if (localZ < 0) localZ += ChunkSize;
+
+        return chunk.Blocks[localX, localY, localZ];
     }
 }

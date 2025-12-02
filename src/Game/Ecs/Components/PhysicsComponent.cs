@@ -1,0 +1,11 @@
+﻿using OpenTK.Mathematics;
+
+namespace Game.Ecs.Components;
+
+public class PhysicsComponent
+{
+    public Vector3 Size = new(0.6f, 1.8f, 0.6f);
+    public bool IsGrounded = false;
+    public float Drag = 5.0f;
+    public float Gravity = 27.0f;
+}

@@ -1,4 +1,7 @@
-﻿using Game.Graphics;
+﻿using Game.Ecs;
+using Game.Ecs.Components;
+using Game.Ecs.Systems;
+using Game.Graphics;
 using Game.World;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
@@ -13,6 +16,10 @@ public class MainWindow : GameWindow
     private WorldManager? _world;
     private ShaderProgram? _program;
     private Camera? _camera;
+
+    private Entity _player;
+    private InputSystem _inputSystem;
+    private PhysicsSystem _physicsSystem;
 
     private readonly int _screenWidth;
     private readonly int _screenHeight;
@@ -29,10 +36,10 @@ public class MainWindow : GameWindow
     {
         base.OnLoad();
 
-        var startingPos = new Vector3(0f, 20f, 0f);
+        var startingPos = new Vector3(0f, 50f, 0f);
         _world = new WorldManager(startingPos);
         _program = new ShaderProgram("Default.vert", "Default.frag");
-        _camera = new Camera(_screenWidth, _screenHeight, startingPos);
+        _camera = new Camera(_screenWidth, _screenHeight);
 
         GL.Enable(EnableCap.DepthTest);
 
@@ -41,6 +48,15 @@ public class MainWindow : GameWindow
         GL.CullFace(TriangleFace.Back);
 
         CursorState = CursorState.Grabbed;
+
+        // Initialize ECS
+        _player = new Entity();
+        _player.AddComponent(new PositionComponent { Position = startingPos });
+        _player.AddComponent(new VelocityComponent());
+        _player.AddComponent(new PhysicsComponent());
+
+        _inputSystem = new InputSystem();
+        _physicsSystem = new PhysicsSystem(_world);
     }
 
     protected override void OnUnload()
@@ -93,10 +109,14 @@ public class MainWindow : GameWindow
         if (MouseState.IsButtonPressed(MouseButton.Right))
             CursorState = CursorState.Normal;
 
-        if (CursorState == CursorState.Grabbed)
-        {
-            _camera?.Update(KeyboardState, MouseState, args);
-        }
+        if (CursorState != CursorState.Grabbed || _camera == null) return;
+
+        _camera.InputController(MouseState, args);
+        _inputSystem.Update(_player, _camera, KeyboardState);
+        _physicsSystem.Update(_player, (float)args.Time);
+
+        var playerPos = _player.GetComponent<PositionComponent>().Position;
+        _camera?.Position = playerPos + new Vector3(0, 1.62f, 0); // Eye level offset
     }
 
     protected override void OnResize(ResizeEventArgs e)
