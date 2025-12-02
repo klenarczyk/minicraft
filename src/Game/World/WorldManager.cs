@@ -1,116 +1,178 @@
-﻿using System.Collections.Concurrent;
-using Game.Graphics;
+﻿using Game.Graphics;
 using OpenTK.Mathematics;
+using System.Collections.Concurrent;
 
 namespace Game.World;
 
 public class WorldManager
 {
-    private readonly Dictionary<Vector2i, Chunk> _activeChunks = new();
-    private readonly HashSet<Vector2i> _chunksBeingGenerated = [];
-    private readonly ConcurrentQueue<Chunk> _chunksReadyToUpload = new();
-
-    private readonly Vector2i[] _chunkUpdatePattern;
+    private readonly ConcurrentDictionary<Vector2i, Chunk> _activeChunks = new();
+    private readonly ConcurrentQueue<Chunk> _uploadQueue = new();
 
     private const int RenderDistance = 8;
+    private const int LoadDistance = RenderDistance + 1;
     private const int ChunkSize = 16;
 
-    private Vector2i? _lastChunkCoord;
-
+    private readonly Vector2i[] _chunkUpdatePattern;
+    private Vector2i _lastChunkCoord;
     private readonly Texture _textureAtlas;
+
+    private readonly ConcurrentDictionary<Vector2i, bool> _chunksProcessingData = new();
 
     public WorldManager(Vector3 startingPos)
     {
         _textureAtlas = new Texture("atlas.png");
         _lastChunkCoord = new Vector2i(int.MaxValue, int.MaxValue);
 
-        _chunkUpdatePattern = GenerateChunkUpdatePattern();
-
+        _chunkUpdatePattern = GenerateChunkUpdatePattern(LoadDistance);
         UpdateWorld(startingPos);
+    }
+
+    public void Render(ShaderProgram program, Vector3 cameraPosition)
+    {
+        UpdateWorld(cameraPosition);
+        ProcessUploadQueue();
+
+        program.Bind();
+        _textureAtlas.Bind();
+
+        foreach (var chunk in _activeChunks.Values)
+        {
+            if (chunk is { IsActive: true, IsMeshGenerated: true })
+                chunk.Render(program);
+        }
     }
 
     private void UpdateWorld(Vector3 cameraPosition)
     {
         var currentChunkCoords = WorldToChunkCoords(cameraPosition);
-
         if (currentChunkCoords == _lastChunkCoord) return;
 
-        List<Vector2i> coordsToRemove = [];
-        foreach (var chunk in _activeChunks)
+        _lastChunkCoord = currentChunkCoords;
+
+        // Remove chunks outside data distance
+        List<Vector2i> toRemove = [];
+        foreach (var key in _activeChunks.Keys)
         {
-            if (Math.Abs(chunk.Key.X - currentChunkCoords.X) > RenderDistance ||
-                Math.Abs(chunk.Key.Y - currentChunkCoords.Y) > RenderDistance)
+            if (Math.Abs(key.X - currentChunkCoords.X) > RenderDistance ||
+                Math.Abs(key.Y - currentChunkCoords.Y) > RenderDistance)
             {
-                coordsToRemove.Add(chunk.Key);
+                toRemove.Add(key);
             }
         }
 
-        foreach (var coord in coordsToRemove)
+        foreach (var coord in toRemove)
         {
-            _activeChunks[coord].Delete();
-            _activeChunks.Remove(coord);
-            _chunksBeingGenerated.Remove(coord);
+            if (_activeChunks.TryRemove(coord, out var chunk))
+                chunk.Delete();
         }
 
+        // Spawn generators
         foreach (var offset in _chunkUpdatePattern)
         {
             var chunkCoord = currentChunkCoords + offset;
 
-            if (_activeChunks.ContainsKey(chunkCoord) || _chunksBeingGenerated.Contains(chunkCoord))
-                continue;
+            if (_activeChunks.ContainsKey(chunkCoord)) continue;
+            if (_chunksProcessingData.ContainsKey(chunkCoord)) continue;
 
             SpawnChunkGeneration(chunkCoord);
-        }
-
-        _lastChunkCoord = currentChunkCoords;
-    }
-
-    private void ProcessChunkQueue()
-    {
-        var chunksUploaded = 0;
-
-        while (chunksUploaded < 4 && _chunksReadyToUpload.TryDequeue(out var chunk))
-        {
-            chunk.UploadMesh();
-            chunksUploaded++;
         }
     }
 
     private void SpawnChunkGeneration(Vector2i chunkCoord)
     {
-        _chunksBeingGenerated.Add(chunkCoord);
-
         var chunkPosition = new Vector2i(chunkCoord.X * ChunkSize, chunkCoord.Y * ChunkSize);
         var newChunk = new Chunk(chunkPosition);
 
-        _activeChunks.Add(chunkCoord, newChunk);
+        if (!_chunksProcessingData.TryAdd(chunkCoord, true)) return;
 
         Task.Run(() =>
         {
             try
             {
-                newChunk.GenerateMesh();
-                _chunksReadyToUpload.Enqueue(newChunk);
+                newChunk.GenerateData();
+
+                _activeChunks.TryAdd(chunkCoord, newChunk);
+
+                CheckAndRequestMesh(chunkCoord);
+                CheckAndRequestMesh(chunkCoord + new Vector2i(-1, 0));
+                CheckAndRequestMesh(chunkCoord + new Vector2i(1, 0));
+                CheckAndRequestMesh(chunkCoord + new Vector2i(0, -1));
+                CheckAndRequestMesh(chunkCoord + new Vector2i(0, 1));
             }
             catch (Exception e)
             {
                 Console.WriteLine($"Error generating chunk at {chunkCoord}: {e.Message}");
-                _activeChunks.Remove(chunkCoord);
+                _activeChunks.TryRemove(chunkCoord, out _);
             }
             finally
             {
-                _chunksBeingGenerated.Remove(chunkCoord);
+                _chunksProcessingData.TryRemove(chunkCoord, out _);
             }
         });
     }
 
-    private static Vector2i[] GenerateChunkUpdatePattern()
+    private void CheckAndRequestMesh(Vector2i chunkCoord)
+    {
+        if (!_activeChunks.TryGetValue(chunkCoord, out var chunk)) return;
+        if (chunk.IsMeshGenerated || chunk.MeshGenerationRequested) return;
+        if (!chunk.IsDataGenerated) return;
+
+        var distX = (long)chunkCoord.X - _lastChunkCoord.X;
+        var distY = (long)chunkCoord.Y - _lastChunkCoord.Y;
+
+        if (Math.Abs(distX) > RenderDistance || Math.Abs(distY) > RenderDistance) return;
+
+        if (!_activeChunks.TryGetValue(chunkCoord + new Vector2i(-1, 0), out var west) || !west.IsDataGenerated) return;
+        if (!_activeChunks.TryGetValue(chunkCoord + new Vector2i(1, 0), out var east) || !east.IsDataGenerated) return;
+        if (!_activeChunks.TryGetValue(chunkCoord + new Vector2i(0, 1), out var north) || !north.IsDataGenerated) return;
+        if (!_activeChunks.TryGetValue(chunkCoord + new Vector2i(0, -1), out var south) || !south.IsDataGenerated) return;
+
+        lock (chunk.MeshGenLock)
+        {
+            if (chunk.MeshGenerationRequested) return;
+            chunk.MeshGenerationRequested = true;
+        }
+
+        Task.Run(() =>
+        {
+            try
+            {
+                chunk.GenerateMesh(west, east, north, south);
+                _uploadQueue.Enqueue(chunk);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"Mesh generation failed at {chunkCoord}: {e.Message}\n{e.StackTrace}");
+
+                lock (chunk.MeshGenLock)
+                {
+                    chunk.MeshGenerationRequested = false;
+                }
+            }
+        });
+    }
+
+    private void ProcessUploadQueue()
+    {
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+        while (_uploadQueue.TryDequeue(out var chunk))
+        {
+            chunk.UploadMesh();
+
+            if (stopwatch.ElapsedMilliseconds > 4)
+                break;
+        }
+    }
+
+    private static Vector2i[] GenerateChunkUpdatePattern(int distance)
     {
         var offsets = new List<Vector2i>();
 
-        for (var x = -RenderDistance; x <= RenderDistance; x++)
+        for (var x = -distance; x <= distance; x++)
         {
-            for (var z = -RenderDistance; z <= RenderDistance; z++)
+            for (var z = -distance; z <= distance; z++)
             {
                 offsets.Add(new Vector2i(x, z));
             }
@@ -128,25 +190,13 @@ public class WorldManager
         return new Vector2i(chunkX, chunkZ);
     }
 
-    public void Render(ShaderProgram program, Vector3 cameraPosition)
-    {
-        UpdateWorld(cameraPosition);
-        ProcessChunkQueue();
-
-        foreach (var chunk in _activeChunks.Values)
-        {
-            chunk.Render(program, _textureAtlas);
-        }
-    }
-
     public void Delete()
     {
-        foreach (var chunk in _activeChunks)
+        foreach (var chunk in _activeChunks.Values)
         {
-            chunk.Value.Delete();
-            _activeChunks.Remove(chunk.Key);
+            chunk.Delete();
         }
-
+        _activeChunks.Clear();
         _textureAtlas.Delete();
     }
 }

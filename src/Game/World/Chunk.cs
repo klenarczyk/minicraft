@@ -18,28 +18,43 @@ public class Chunk(Vector2i position)
     private const int Size = 16;
     private const int Height = 256;
 
-    private uint _indexCount;
-
     // OpenGL objects (Main thread only)
     private Vao? _vao;
     private Vbo? _vboVerts;
     private Vbo? _vboUvs;
     private Ebo? _ebo;
 
+    public bool IsDataGenerated { get; private set; }
     public bool IsMeshGenerated { get; private set; }
     public bool IsActive { get; private set; }
 
-    // Worker thread method
-    public void GenerateMesh()
+    public readonly Lock MeshGenLock = new();
+    public bool MeshGenerationRequested { get; set; }
+
+    public void GenerateData()
     {
         var heightMap = GenerateHeightmap();
         GenerateBlocks(heightMap);
-        GenerateFaces();
-
-        IsMeshGenerated = true;
+        IsDataGenerated = true;
     }
 
-    // Main thread method
+    public void GenerateMesh(Chunk west, Chunk east, Chunk north, Chunk south)
+    {
+        if (!IsDataGenerated) return;
+
+        lock (MeshGenLock) {
+            if (IsMeshGenerated) return;
+
+            _vertices.Clear();
+            _uvs.Clear();
+            _indices.Clear();
+
+            GenerateFaces(west, east, north, south);
+            IsMeshGenerated = true;
+            MeshGenerationRequested = false;
+        }
+    }
+
     public void UploadMesh()
     {
         if (!IsMeshGenerated) return;
@@ -47,19 +62,18 @@ public class Chunk(Vector2i position)
         _vao = new Vao();
         _vao.Bind();
 
-        _vboVerts = new Vbo(_vertices);
-        _vboVerts.Bind();
-        _vao.LinkToVao(0, 3, _vboVerts);
+        lock (MeshGenLock)
+        {
+            _vboVerts = new Vbo(_vertices);
+            _vboVerts.Bind();
+            _vao.LinkToVao(0, 3, _vboVerts);
 
-        _vboUvs = new Vbo(_uvs);
-        _vboUvs.Bind();
-        _vao.LinkToVao(1, 2, _vboUvs);
+            _vboUvs = new Vbo(_uvs);
+            _vboUvs.Bind();
+            _vao.LinkToVao(1, 2, _vboUvs);
 
-        _ebo = new Ebo(_indices);
-
-        _vertices.Clear();
-        _uvs.Clear();
-        _indices.Clear();
+            _ebo = new Ebo(_indices);
+        }
 
         IsActive = true;
     }
@@ -95,19 +109,16 @@ public class Chunk(Vector2i position)
                 var blockType = BlockType.Air;
 
                 if (y < columnHeight - 1)
-                {
                     blockType = BlockType.Dirt;
-                } else if (y == columnHeight - 1)
-                {
+                else if (y == columnHeight - 1) 
                     blockType = BlockType.Grass;
-                }
 
                 Blocks[x, y, z] = blockType;
             }
         }
     }
 
-    private void GenerateFaces()
+    private void GenerateFaces(Chunk west, Chunk east, Chunk north, Chunk south)
     {
         for (var x = 0; x < Size; x++)
         for (var y = 0; y < Height; y++)
@@ -115,24 +126,30 @@ public class Chunk(Vector2i position)
         {
             if (Blocks[x, y, z] == BlockType.Air) continue;
 
-            if (ShouldRenderFace(x, y, z + 1)) AddFaceData(x, y, z, Face.Front);
-            if (ShouldRenderFace(x, y, z - 1)) AddFaceData(x, y, z, Face.Back);
-            if (ShouldRenderFace(x - 1, y, z)) AddFaceData(x, y, z, Face.Left);
-            if (ShouldRenderFace(x + 1, y, z)) AddFaceData(x, y, z, Face.Right);
-            if (ShouldRenderFace(x, y + 1, z)) AddFaceData(x, y, z, Face.Top);
-            if (ShouldRenderFace(x, y - 1, z)) AddFaceData(x, y, z, Face.Bottom);
+            if (ShouldRenderFace(x, y, z + 1, north)) AddFaceData(x, y, z, Face.Front);
+            if (ShouldRenderFace(x, y, z - 1, south)) AddFaceData(x, y, z, Face.Back);
+            if (ShouldRenderFace(x - 1, y, z, west)) AddFaceData(x, y, z, Face.Left);
+            if (ShouldRenderFace(x + 1, y, z, east)) AddFaceData(x, y, z, Face.Right);
+            if (ShouldRenderFace(x, y + 1, z, null)) AddFaceData(x, y, z, Face.Top);
+            if (ShouldRenderFace(x, y - 1, z, null)) AddFaceData(x, y, z, Face.Bottom);
         }
     }
 
-    private bool ShouldRenderFace(int neighborX, int neighborY, int neighborZ)
+    private bool ShouldRenderFace(int neighborX, int neighborY, int neighborZ, Chunk? neighborChunk)
     {
-        if (neighborX < 0 || neighborX >= Size || neighborY < 0 || neighborY >= Height || neighborZ < 0 || neighborZ >= Size)
+        if (neighborY is < 0 or >= Height)
             return true;
 
-        var neighborType = Blocks[neighborX, neighborY, neighborZ];
-        var neighborDef = BlockRegistry.Get(neighborType);
+        if (neighborX is >= 0 and < Size && neighborZ is >= 0 and < Size)
+            return !BlockRegistry.Get(Blocks[neighborX, neighborY, neighborZ]).IsSolid;
 
-        return !neighborDef.IsSolid;
+        if (neighborChunk == null)
+            return true;
+
+        var localX = (neighborX + Size) % Size;
+        var localZ = (neighborZ + Size) % Size;
+
+        return !BlockRegistry.Get(neighborChunk.Blocks[localX, neighborY, localZ]).IsSolid;
     }
 
     private void AddFaceData(int x, int y, int z, Face face)
@@ -151,32 +168,27 @@ public class Chunk(Vector2i position)
 
     private void AddIndices()
     {
-        _indices.Add(0 + _indexCount);
-        _indices.Add(1 + _indexCount);
-        _indices.Add(2 + _indexCount);
-        _indices.Add(2 + _indexCount);
-        _indices.Add(3 + _indexCount);
-        _indices.Add(0 + _indexCount);
-
-        _indexCount += 4;
+        var baseIndex = _vertices.Count - 4;
+        _indices.Add((uint)baseIndex);
+        _indices.Add((uint)(baseIndex + 1));
+        _indices.Add((uint)(baseIndex + 2));
+        _indices.Add((uint)(baseIndex + 2));
+        _indices.Add((uint)(baseIndex + 3));
+        _indices.Add((uint)baseIndex);
     }
 
-    public void Render(ShaderProgram program, Texture textureAtlas)
+    public void Render(ShaderProgram program)
     {
         if (!IsActive) return;
 
-        program.Bind();
         _vao!.Bind();
         _ebo!.Bind();
-        textureAtlas.Bind();
 
         GL.DrawElements(BeginMode.Triangles, _ebo.Count, DrawElementsType.UnsignedInt, 0);
     }
 
     public void Delete()
     {
-        if (!IsActive) return;
-
         _vao?.Delete();
         _vboVerts?.Delete();
         _vboUvs?.Delete();
