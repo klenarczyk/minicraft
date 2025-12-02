@@ -2,6 +2,7 @@
 using Game.Ecs.Components;
 using Game.Ecs.Systems;
 using Game.Graphics;
+using Game.Gui;
 using Game.World;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
@@ -20,6 +21,8 @@ public class MainWindow : GameWindow
     private Entity _player;
     private InputSystem _inputSystem;
     private PhysicsSystem _physicsSystem;
+
+    private Crosshair _crosshair;
 
     private readonly int _screenWidth;
     private readonly int _screenHeight;
@@ -57,6 +60,8 @@ public class MainWindow : GameWindow
 
         _inputSystem = new InputSystem();
         _physicsSystem = new PhysicsSystem(_world);
+
+        _crosshair = new Crosshair();
     }
 
     protected override void OnUnload()
@@ -65,6 +70,7 @@ public class MainWindow : GameWindow
 
         _world?.Delete();
         _program?.Delete();
+        _crosshair.Dispose();
     }
 
     protected override void OnRenderFrame(FrameEventArgs args)
@@ -75,6 +81,8 @@ public class MainWindow : GameWindow
 
         GL.ClearColor(0.48f, 0.64f, 1f, 1f);
         GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+
+        _program.Bind();
 
         // Transformation matrices
         var model = Matrix4.Identity;
@@ -90,6 +98,9 @@ public class MainWindow : GameWindow
         GL.UniformMatrix4(projectionLocation, true, ref projection);
 
         _world.Render(_program, _camera.Position);
+
+        var aspectRatio = Size.X / (float)Size.Y;
+        _crosshair.Render(aspectRatio);
 
         Context.SwapBuffers();
     }

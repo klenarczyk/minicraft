@@ -25,4 +25,8 @@
 	  <ProjectReference Include="..\Libs\Libs.csproj" />
 	</ItemGroup>
 
+	<ItemGroup>
+	  <Folder Include="Gui\" />
+	</ItemGroup>
+
 </Project>
