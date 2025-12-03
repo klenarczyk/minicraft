@@ -11,8 +11,6 @@ public class WorldManager
 
     private const int RenderDistance = 8;
     private const int LoadDistance = RenderDistance + 1;
-    private const int ChunkSize = 16;
-    private const int ChunkHeight = 256;
 
     private readonly Vector2i[] _chunkUpdatePattern;
     private Vector2i _lastChunkCoord;
@@ -39,7 +37,10 @@ public class WorldManager
 
         foreach (var chunk in _activeChunks.Values)
         {
-            if (chunk is { IsActive: true, IsMeshGenerated: true })
+            var min = new Vector3(chunk.Position.X, 0, chunk.Position.Y);
+            var max = new Vector3(chunk.Position.X + Chunk.Size, Chunk.Height, chunk.Position.Y + Chunk.Size);
+
+            if (chunk is { IsActive: true, IsMeshGenerated: true } && Frustum.IsBoxVisible(min, max))
                 chunk.Render(program);
         }
     }
@@ -82,7 +83,7 @@ public class WorldManager
 
     private void SpawnChunkGeneration(Vector2i chunkCoord)
     {
-        var chunkPosition = new Vector2i(chunkCoord.X * ChunkSize, chunkCoord.Y * ChunkSize);
+        var chunkPosition = new Vector2i(chunkCoord.X * Chunk.Size, chunkCoord.Y * Chunk.Size);
         var newChunk = new Chunk(chunkPosition);
 
         if (!_chunksProcessingData.TryAdd(chunkCoord, true)) return;
@@ -186,8 +187,8 @@ public class WorldManager
 
     private static Vector2i WorldToChunkCoords(Vector3 position)
     {
-        var chunkX = (int)MathF.Floor(position.X / ChunkSize);
-        var chunkZ = (int)MathF.Floor(position.Z / ChunkSize);
+        var chunkX = (int)MathF.Floor(position.X / Chunk.Size);
+        var chunkZ = (int)MathF.Floor(position.Z / Chunk.Size);
         return new Vector2i(chunkX, chunkZ);
     }
 
@@ -207,13 +208,13 @@ public class WorldManager
         if (!_activeChunks.TryGetValue(chunkCoords, out var chunk))
             return BlockType.Air;
 
-        var localX = (int)(MathF.Floor(position.X) % ChunkSize);
+        var localX = (int)(MathF.Floor(position.X) % Chunk.Size);
         var localY = (int)(MathF.Floor(position.Y));
-        var localZ = (int)(MathF.Floor(position.Z) % ChunkSize);
+        var localZ = (int)(MathF.Floor(position.Z) % Chunk.Size);
 
-        if (localX < 0) localX += ChunkSize;
-        if (localY is < 0 or >= ChunkHeight) return BlockType.Air;
-        if (localZ < 0) localZ += ChunkSize;
+        if (localX < 0) localX += Chunk.Size;
+        if (localY is < 0 or >= Chunk.Height) return BlockType.Air;
+        if (localZ < 0) localZ += Chunk.Size;
 
         return chunk.Blocks[localX, localY, localZ];
     }
@@ -224,9 +225,9 @@ public class WorldManager
         if (!_activeChunks.TryGetValue(chunkCoords, out var chunk))
             return;
 
-        var localX = ((int)(MathF.Floor(position.X) % ChunkSize) + ChunkSize) % ChunkSize;
+        var localX = ((int)(MathF.Floor(position.X) % Chunk.Size) + Chunk.Size) % Chunk.Size;
         var localY = (int)(MathF.Floor(position.Y));
-        var localZ = ((int)(MathF.Floor(position.Z) % ChunkSize) + ChunkSize) % ChunkSize;
+        var localZ = ((int)(MathF.Floor(position.Z) % Chunk.Size) + Chunk.Size) % Chunk.Size;
 
         chunk.Blocks[localX, localY, localZ] = block;
         CheckAndRequestMesh(chunkCoords);
@@ -236,7 +237,7 @@ public class WorldManager
             case 0:
                 CheckAndRequestMesh(chunkCoords + new Vector2i(-1, 0));
                 break;
-            case ChunkSize - 1:
+            case Chunk.Size - 1:
                 CheckAndRequestMesh(chunkCoords + new Vector2i(1, 0));
                 break;
         }
@@ -246,7 +247,7 @@ public class WorldManager
             case 0:
                 CheckAndRequestMesh(chunkCoords + new Vector2i(0, -1));
                 break;
-            case ChunkSize - 1:
+            case Chunk.Size - 1:
                 CheckAndRequestMesh(chunkCoords + new Vector2i(0, 1));
                 break;
         }

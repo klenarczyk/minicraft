@@ -14,6 +14,7 @@ namespace Game;
 
 public class MainWindow : GameWindow
 {
+    private bool _freezeFrustum = false;
     private WorldManager? _world;
     private ShaderProgram? _program;
     private Camera? _camera;
@@ -30,6 +31,8 @@ public class MainWindow : GameWindow
 
     private readonly int _screenWidth;
     private readonly int _screenHeight;
+
+    private readonly Vector3 _skyColor = new(0.5f, 0.7f, 1.0f);
 
     public MainWindow(int width, int height)
         : base(GameWindowSettings.Default, NativeWindowSettings.Default)
@@ -86,7 +89,7 @@ public class MainWindow : GameWindow
 
         if (_camera == null || _program == null || _world == null) return;
 
-        GL.ClearColor(0.48f, 0.64f, 1f, 1f);
+        GL.ClearColor(_skyColor.X, _skyColor.Y, _skyColor.Z, 1.0f);
         GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
         _program.Bind();
@@ -104,17 +107,21 @@ public class MainWindow : GameWindow
         GL.UniformMatrix4(viewLocation, true, ref view);
         GL.UniformMatrix4(projectionLocation, true, ref projection);
 
+        var skyLoc = GL.GetUniformLocation(_program.Id, "skyColor");
+        GL.Uniform3(skyLoc, _skyColor);
+
+        if (!_freezeFrustum)
+        {
+            Frustum.Update(_camera.GetViewMatrix() * _camera.GetProjectionMatrix());
+        }
+
         //GL.PolygonMode(TriangleFace.FrontAndBack, PolygonMode.Line); // Wireframe mode
         _world.Render(_program, _camera.Position);
         //GL.PolygonMode(TriangleFace.FrontAndBack, PolygonMode.Fill);
 
         var targetPos = new Vector3(_currentHit.BlockPosition.X, _currentHit.BlockPosition.Y, _currentHit.BlockPosition.Z);
         if (_currentHit.Hit)
-        {
-            // Convert integer Vector3i to float Vector3 for rendering
-
             _outline?.Render(targetPos, _camera.GetViewMatrix(), _camera.GetProjectionMatrix());
-        }
 
         var aspectRatio = Size.X / (float)Size.Y;
         _crosshair?.Render(aspectRatio);
@@ -136,6 +143,11 @@ public class MainWindow : GameWindow
 
         if (KeyboardState.IsKeyPressed(Keys.Escape))
             Close();
+        if (KeyboardState.IsKeyPressed(Keys.F5))
+        {
+            _freezeFrustum = !_freezeFrustum;
+            Console.WriteLine($"Frustum Frozen: {_freezeFrustum}");
+        }
         if (KeyboardState.IsKeyPressed(Keys.F1) && _crosshair != null)
             _crosshair.IsVisible = !_crosshair.IsVisible;
         if (KeyboardState.IsKeyPressed(Keys.F11))

@@ -15,8 +15,8 @@ public class Chunk(Vector2i position)
     private readonly List<Vector2> _uvs = [];
     private readonly List<uint> _indices = [];
 
-    private const int Size = 16;
-    private const int Height = 256;
+    public const int Size = 16;
+    public const int Height = 256;
 
     // OpenGL objects (Main thread only)
     private Vao? _vao;
