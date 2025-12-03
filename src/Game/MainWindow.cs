@@ -23,6 +23,9 @@ public class MainWindow : GameWindow
     private PhysicsSystem? _physicsSystem;
 
     private Raycaster? _raycaster;
+    private BlockOutline? _outline;
+    private RaycastResult _currentHit = new() { Hit = false };
+
     private Crosshair? _crosshair;
 
     private readonly int _screenWidth;
@@ -45,6 +48,7 @@ public class MainWindow : GameWindow
         _program = new ShaderProgram("Default.vert", "Default.frag");
         _camera = new Camera(_screenWidth, _screenHeight);
         _raycaster = new Raycaster(_world);
+        _outline = new BlockOutline();
 
         GL.Enable(EnableCap.DepthTest);
 
@@ -72,6 +76,7 @@ public class MainWindow : GameWindow
 
         _world?.Delete();
         _program?.Delete();
+        _outline?.Dispose();
         _crosshair?.Dispose();
     }
 
@@ -103,6 +108,14 @@ public class MainWindow : GameWindow
         _world.Render(_program, _camera.Position);
         //GL.PolygonMode(TriangleFace.FrontAndBack, PolygonMode.Fill);
 
+        var targetPos = new Vector3(_currentHit.BlockPosition.X, _currentHit.BlockPosition.Y, _currentHit.BlockPosition.Z);
+        if (_currentHit.Hit)
+        {
+            // Convert integer Vector3i to float Vector3 for rendering
+
+            _outline?.Render(targetPos, _camera.GetViewMatrix(), _camera.GetProjectionMatrix());
+        }
+
         var aspectRatio = Size.X / (float)Size.Y;
         _crosshair?.Render(aspectRatio);
 
@@ -132,27 +145,19 @@ public class MainWindow : GameWindow
 
         if (_world == null || _inputSystem == null || _physicsSystem == null || _player == null || _raycaster == null) return;
 
-        if (MouseState.IsButtonPressed(MouseButton.Left) && CursorState == CursorState.Grabbed)
+        _currentHit = _raycaster.Raycast(_camera.Position, _camera.Front, 5.0f);
+
+        if (MouseState.IsButtonPressed(MouseButton.Left) && _currentHit.Hit && CursorState == CursorState.Grabbed)
+            _world.SetBlockAt(_currentHit.BlockPosition, BlockType.Air);
+
+        if (MouseState.IsButtonPressed(MouseButton.Right) && _currentHit.Hit && CursorState == CursorState.Grabbed)
         {
-            var result = _raycaster.Raycast(_camera.Position, _camera.Front, 5.0f);
+            var playerFootPos = _player.GetComponent<PositionComponent>().Position;
+            var playerGridPos = new Vector3i((int)Math.Floor(playerFootPos.X), (int)Math.Floor(playerFootPos.Y), (int)Math.Floor(playerFootPos.Z));
+            var placePos = _currentHit.PlacePosition;
 
-            if (result.Hit)
-                _world.SetBlockAt(result.BlockPosition, BlockType.Air);
-        }
-
-        if (MouseState.IsButtonPressed(MouseButton.Right) && CursorState == CursorState.Grabbed)
-        {
-            var result = _raycaster.Raycast(_camera.Position, _camera.Front, 5.0f);
-
-            if (result.Hit)
-            {
-                var playerFootPos = _player.GetComponent<PositionComponent>().Position;
-                var playerGridPos = new Vector3i((int)Math.Floor(playerFootPos.X), (int)Math.Floor(playerFootPos.Y), (int)Math.Floor(playerFootPos.Z));
-                var placePos = result.PlacePosition;
-
-                if (placePos != playerGridPos && placePos != playerGridPos + new Vector3i(0, 1, 0))
-                    _world.SetBlockAt(placePos, BlockType.Dirt);
-            }
+            if (placePos != playerGridPos && placePos != playerGridPos + new Vector3i(0, 1, 0))
+                _world.SetBlockAt(placePos, BlockType.Dirt);
         }
 
         _camera.InputController(MouseState, args);
