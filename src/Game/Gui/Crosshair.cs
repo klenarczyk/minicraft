@@ -11,6 +11,7 @@ public class Crosshair : IDisposable
     private readonly ShaderProgram _shader;
 
     private const float Scale = 0.02f;
+    public bool IsVisible = true;
 
     public Crosshair()
     {
@@ -37,6 +38,8 @@ public class Crosshair : IDisposable
 
     public void Render(float aspectRatio)
     {
+        if (!IsVisible) return;
+
         GL.Disable(EnableCap.DepthTest);
 
         GL.Enable(EnableCap.Blend);

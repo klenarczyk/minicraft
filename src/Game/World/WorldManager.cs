@@ -116,7 +116,7 @@ public class WorldManager
     private void CheckAndRequestMesh(Vector2i chunkCoord)
     {
         if (!_activeChunks.TryGetValue(chunkCoord, out var chunk)) return;
-        if (chunk.IsMeshGenerated || chunk.MeshGenerationRequested) return;
+        if (chunk.MeshGenerationRequested) return;
         if (!chunk.IsDataGenerated) return;
 
         var distX = (long)chunkCoord.X - _lastChunkCoord.X;
@@ -216,5 +216,39 @@ public class WorldManager
         if (localZ < 0) localZ += ChunkSize;
 
         return chunk.Blocks[localX, localY, localZ];
+    }
+
+    public void SetBlockAt(Vector3 position, BlockType block)
+    {
+        var chunkCoords = WorldToChunkCoords(position);
+        if (!_activeChunks.TryGetValue(chunkCoords, out var chunk))
+            return;
+
+        var localX = ((int)(MathF.Floor(position.X) % ChunkSize) + ChunkSize) % ChunkSize;
+        var localY = (int)(MathF.Floor(position.Y));
+        var localZ = ((int)(MathF.Floor(position.Z) % ChunkSize) + ChunkSize) % ChunkSize;
+
+        chunk.Blocks[localX, localY, localZ] = block;
+        CheckAndRequestMesh(chunkCoords);
+
+        switch (localX)
+        {
+            case 0:
+                CheckAndRequestMesh(chunkCoords + new Vector2i(-1, 0));
+                break;
+            case ChunkSize - 1:
+                CheckAndRequestMesh(chunkCoords + new Vector2i(1, 0));
+                break;
+        }
+
+        switch (localZ)
+        {
+            case 0:
+                CheckAndRequestMesh(chunkCoords + new Vector2i(0, -1));
+                break;
+            case ChunkSize - 1:
+                CheckAndRequestMesh(chunkCoords + new Vector2i(0, 1));
+                break;
+        }
     }
 }

@@ -18,11 +18,12 @@ public class MainWindow : GameWindow
     private ShaderProgram? _program;
     private Camera? _camera;
 
-    private Entity _player;
-    private InputSystem _inputSystem;
-    private PhysicsSystem _physicsSystem;
+    private Entity? _player;
+    private InputSystem? _inputSystem;
+    private PhysicsSystem? _physicsSystem;
 
-    private Crosshair _crosshair;
+    private Raycaster? _raycaster;
+    private Crosshair? _crosshair;
 
     private readonly int _screenWidth;
     private readonly int _screenHeight;
@@ -43,6 +44,7 @@ public class MainWindow : GameWindow
         _world = new WorldManager(startingPos);
         _program = new ShaderProgram("Default.vert", "Default.frag");
         _camera = new Camera(_screenWidth, _screenHeight);
+        _raycaster = new Raycaster(_world);
 
         GL.Enable(EnableCap.DepthTest);
 
@@ -70,7 +72,7 @@ public class MainWindow : GameWindow
 
         _world?.Delete();
         _program?.Delete();
-        _crosshair.Dispose();
+        _crosshair?.Dispose();
     }
 
     protected override void OnRenderFrame(FrameEventArgs args)
@@ -97,10 +99,12 @@ public class MainWindow : GameWindow
         GL.UniformMatrix4(viewLocation, true, ref view);
         GL.UniformMatrix4(projectionLocation, true, ref projection);
 
+        //GL.PolygonMode(TriangleFace.FrontAndBack, PolygonMode.Line); // Wireframe mode
         _world.Render(_program, _camera.Position);
+        //GL.PolygonMode(TriangleFace.FrontAndBack, PolygonMode.Fill);
 
         var aspectRatio = Size.X / (float)Size.Y;
-        _crosshair.Render(aspectRatio);
+        _crosshair?.Render(aspectRatio);
 
         Context.SwapBuffers();
     }
@@ -109,25 +113,54 @@ public class MainWindow : GameWindow
     {
         base.OnUpdateFrame(args);
 
-        if (!IsFocused) return;
+        if (!IsFocused)
+        {
+            CursorState = CursorState.Normal;
+            return;
+        }
+        
+        CursorState = CursorState.Grabbed;
 
         if (KeyboardState.IsKeyPressed(Keys.Escape))
             Close();
+        if (KeyboardState.IsKeyPressed(Keys.F1) && _crosshair != null)
+            _crosshair.IsVisible = !_crosshair.IsVisible;
         if (KeyboardState.IsKeyPressed(Keys.F11))
             WindowState = WindowState == WindowState.Fullscreen ? WindowState.Normal : WindowState.Fullscreen;
-        if (MouseState.IsButtonPressed(MouseButton.Left))
-            CursorState = CursorState.Grabbed;
-        if (MouseState.IsButtonPressed(MouseButton.Right))
-            CursorState = CursorState.Normal;
 
         if (CursorState != CursorState.Grabbed || _camera == null) return;
+
+        if (_world == null || _inputSystem == null || _physicsSystem == null || _player == null || _raycaster == null) return;
+
+        if (MouseState.IsButtonPressed(MouseButton.Left) && CursorState == CursorState.Grabbed)
+        {
+            var result = _raycaster.Raycast(_camera.Position, _camera.Front, 5.0f);
+
+            if (result.Hit)
+                _world.SetBlockAt(result.BlockPosition, BlockType.Air);
+        }
+
+        if (MouseState.IsButtonPressed(MouseButton.Right) && CursorState == CursorState.Grabbed)
+        {
+            var result = _raycaster.Raycast(_camera.Position, _camera.Front, 5.0f);
+
+            if (result.Hit)
+            {
+                var playerFootPos = _player.GetComponent<PositionComponent>().Position;
+                var playerGridPos = new Vector3i((int)Math.Floor(playerFootPos.X), (int)Math.Floor(playerFootPos.Y), (int)Math.Floor(playerFootPos.Z));
+                var placePos = result.PlacePosition;
+
+                if (placePos != playerGridPos && placePos != playerGridPos + new Vector3i(0, 1, 0))
+                    _world.SetBlockAt(placePos, BlockType.Dirt);
+            }
+        }
 
         _camera.InputController(MouseState, args);
         _inputSystem.Update(_player, _camera, KeyboardState);
         _physicsSystem.Update(_player, (float)args.Time);
 
         var playerPos = _player.GetComponent<PositionComponent>().Position;
-        _camera?.Position = playerPos + new Vector3(0, 1.62f, 0); // Eye level offset
+        _camera.Position = playerPos + new Vector3(0, 1.62f, 0); // Eye level offset
     }
 
     protected override void OnResize(ResizeEventArgs e)
@@ -138,6 +171,6 @@ public class MainWindow : GameWindow
         GL.Viewport(0, 0, e.Width, e.Height);
 
         _camera?.ScreenWidth = e.Width;
-        _camera?.ScreenHeight = e.Height == 0 ? 1 : e.Height;
+        _camera?.ScreenHeight = e.Height;
     }
 }

@@ -43,7 +43,7 @@ public class Chunk(Vector2i position)
         if (!IsDataGenerated) return;
 
         lock (MeshGenLock) {
-            if (IsMeshGenerated) return;
+            if (!MeshGenerationRequested) return;
 
             _vertices.Clear();
             _uvs.Clear();
