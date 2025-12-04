@@ -20,7 +20,7 @@ public class WorldManager
 
     public WorldManager(Vector3 startingPos)
     {
-        _textureAtlas = new Texture("atlas.png");
+        _textureAtlas = new Texture("block_atlas.png");
         _lastChunkCoord = new Vector2i(int.MaxValue, int.MaxValue);
 
         _chunkUpdatePattern = GenerateChunkUpdatePattern(LoadDistance);

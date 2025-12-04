@@ -1,11 +1,17 @@
 #version 330 core
-layout (location = 0) in vec2 aPosition;
+layout (location = 0) in vec2 aPos;
+layout (location = 1) in vec2 aTexCoord;
 
-uniform float aspectRatio; 
-uniform float scale;
+out vec2 TexCoord;
+
+uniform mat4 model;
+uniform mat4 projection;
+
+uniform vec4 uvTransform;
 
 void main()
 {
-    // Adjust by 1 / aspectRation to maintain the squareness
-    gl_Position = vec4(aPosition.x / aspectRatio * scale, aPosition.y * scale, 0.0, 1.0);
+    vec4 world = model * vec4(aPos, 0.0, 1.0);
+    gl_Position = projection * world;
+    TexCoord = (aTexCoord * uvTransform.zw) + uvTransform.xy;
 }

@@ -29,7 +29,7 @@ public class MainWindow : GameWindow
     private bool _freezeFrustum;
     private bool _wireframeEnabled;
 
-    private Crosshair? _crosshair;
+    private GuiRenderer? _gui;
 
     private readonly int _screenWidth;
     private readonly int _screenHeight;
@@ -71,7 +71,7 @@ public class MainWindow : GameWindow
         _inputSystem = new InputSystem();
         _physicsSystem = new PhysicsSystem(_world);
 
-        _crosshair = new Crosshair();
+        _gui = new GuiRenderer(_screenWidth, _screenHeight);
     }
 
     protected override void OnUnload()
@@ -81,7 +81,7 @@ public class MainWindow : GameWindow
         _world?.Delete();
         _program?.Delete();
         _outline?.Dispose();
-        _crosshair?.Dispose();
+        _gui?.Dispose();
     }
 
     protected override void OnRenderFrame(FrameEventArgs args)
@@ -126,8 +126,28 @@ public class MainWindow : GameWindow
         if (_currentHit.Hit)
             _outline?.Render(targetPos, _camera.GetViewMatrix(), _camera.GetProjectionMatrix());
 
-        var aspectRatio = Size.X / (float)Size.Y;
-        _crosshair?.Render(aspectRatio);
+        _gui?.RenderStart();
+
+        var centerX = Size.X / 2.0f;
+        var centerY = Size.Y / 2.0f;
+        const float crosshairSize = 32.0f;
+
+        const float atlasSize = 256.0f;
+        const float iconSize = 16.0f;
+
+        const float scale = iconSize / atlasSize;
+        const float halfTexel = 0.5f / atlasSize;
+        var crosshairUVs = new Vector4(0, 0, scale, scale - halfTexel);
+
+        _gui?.DrawSprite(
+            centerX - (crosshairSize / 2),
+            centerY - (crosshairSize / 2),
+            crosshairSize,
+            crosshairSize,
+            crosshairUVs
+        );
+
+        _gui?.RenderEnd();
 
         Context.SwapBuffers();
     }
@@ -146,8 +166,8 @@ public class MainWindow : GameWindow
 
         if (KeyboardState.IsKeyPressed(Keys.Escape))
             Close();
-        if (KeyboardState.IsKeyPressed(Keys.F1) && _crosshair != null)
-            _crosshair.IsVisible = !_crosshair.IsVisible;
+        if (KeyboardState.IsKeyPressed(Keys.F1) && _gui != null)
+            _gui.IsVisible = !_gui.IsVisible;
         if (KeyboardState.IsKeyPressed(Keys.F4))
             _wireframeEnabled = !_wireframeEnabled;
         if (KeyboardState.IsKeyPressed(Keys.F5))
@@ -194,5 +214,7 @@ public class MainWindow : GameWindow
 
         _camera?.ScreenWidth = e.Width;
         _camera?.ScreenHeight = e.Height;
+
+        _gui?.Resize(e.Width, e.Height);
     }
 }
