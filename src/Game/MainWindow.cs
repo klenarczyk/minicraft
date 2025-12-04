@@ -14,7 +14,6 @@ namespace Game;
 
 public class MainWindow : GameWindow
 {
-    private bool _freezeFrustum = false;
     private WorldManager? _world;
     private ShaderProgram? _program;
     private Camera? _camera;
@@ -26,6 +25,9 @@ public class MainWindow : GameWindow
     private Raycaster? _raycaster;
     private BlockOutline? _outline;
     private RaycastResult _currentHit = new() { Hit = false };
+
+    private bool _freezeFrustum;
+    private bool _wireframeEnabled;
 
     private Crosshair? _crosshair;
 
@@ -55,7 +57,6 @@ public class MainWindow : GameWindow
 
         GL.Enable(EnableCap.DepthTest);
 
-        GL.FrontFace(FrontFaceDirection.Cw);
         GL.Enable(EnableCap.CullFace);
         GL.CullFace(TriangleFace.Back);
 
@@ -115,10 +116,12 @@ public class MainWindow : GameWindow
             Frustum.Update(_camera.GetViewMatrix() * _camera.GetProjectionMatrix());
         }
 
-        //GL.PolygonMode(TriangleFace.FrontAndBack, PolygonMode.Line); // Wireframe mode
-        _world.Render(_program, _camera.Position);
-        //GL.PolygonMode(TriangleFace.FrontAndBack, PolygonMode.Fill);
+        if (_wireframeEnabled)
+            GL.PolygonMode(TriangleFace.FrontAndBack, PolygonMode.Line);
 
+        _world.Render(_program, _camera.Position);
+
+        GL.PolygonMode(TriangleFace.FrontAndBack, PolygonMode.Fill);
         var targetPos = new Vector3(_currentHit.BlockPosition.X, _currentHit.BlockPosition.Y, _currentHit.BlockPosition.Z);
         if (_currentHit.Hit)
             _outline?.Render(targetPos, _camera.GetViewMatrix(), _camera.GetProjectionMatrix());
@@ -143,13 +146,15 @@ public class MainWindow : GameWindow
 
         if (KeyboardState.IsKeyPressed(Keys.Escape))
             Close();
+        if (KeyboardState.IsKeyPressed(Keys.F1) && _crosshair != null)
+            _crosshair.IsVisible = !_crosshair.IsVisible;
+        if (KeyboardState.IsKeyPressed(Keys.F4))
+            _wireframeEnabled = !_wireframeEnabled;
         if (KeyboardState.IsKeyPressed(Keys.F5))
         {
             _freezeFrustum = !_freezeFrustum;
             Console.WriteLine($"Frustum Frozen: {_freezeFrustum}");
         }
-        if (KeyboardState.IsKeyPressed(Keys.F1) && _crosshair != null)
-            _crosshair.IsVisible = !_crosshair.IsVisible;
         if (KeyboardState.IsKeyPressed(Keys.F11))
             WindowState = WindowState == WindowState.Fullscreen ? WindowState.Normal : WindowState.Fullscreen;
 

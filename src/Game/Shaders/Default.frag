@@ -14,6 +14,7 @@ void main()
 
 	vec3 aoColor = texColor.rgb * aoValue;
 
+	//FragColor = vec4(aoValue, aoValue, aoValue, 1.0); // Test for Ambient Occlusion
 	FragColor = vec4(mix(skyColor, aoColor, visibility), texColor.a);
 
 	if (FragColor.a < 0.1) discard;

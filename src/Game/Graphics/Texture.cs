@@ -19,7 +19,6 @@ public class Texture
         GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
         GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
 
-        StbImage.stbi_set_flip_vertically_on_load(1);
         var dirtTexture = ImageResult.FromStream(File.OpenRead("./Textures/" + filePath), ColorComponents.RedGreenBlueAlpha);
 
         GL.TexImage2D(TextureTarget.Texture2D,

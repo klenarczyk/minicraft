@@ -14,6 +14,7 @@ public class Chunk(Vector2i position)
     private readonly List<Vector3> _vertices = [];
     private readonly List<Vector2> _uvs = [];
     private readonly List<uint> _indices = [];
+    private readonly List<float> _ao = [];
 
     public const int Size = 16;
     public const int Height = 256;
@@ -22,6 +23,7 @@ public class Chunk(Vector2i position)
     private Vao? _vao;
     private Vbo? _vboVerts;
     private Vbo? _vboUvs;
+    private Vbo? _vboAo;
     private Ebo? _ebo;
 
     public bool IsDataGenerated { get; private set; }
@@ -48,6 +50,7 @@ public class Chunk(Vector2i position)
             _vertices.Clear();
             _uvs.Clear();
             _indices.Clear();
+            _ao.Clear();
 
             GenerateFaces(west, east, north, south);
             IsMeshGenerated = true;
@@ -71,6 +74,10 @@ public class Chunk(Vector2i position)
             _vboUvs = new Vbo(_uvs);
             _vboUvs.Bind();
             _vao.LinkToVao(1, 2, _vboUvs);
+
+            _vboAo = new Vbo(_ao);
+            _vboAo.Bind();
+            _vao.LinkToVao(2, 1, _vboAo);
 
             _ebo = new Ebo(_indices);
         }
@@ -126,12 +133,12 @@ public class Chunk(Vector2i position)
         {
             if (Blocks[x, y, z] == BlockType.Air) continue;
 
-            if (ShouldRenderFace(x, y, z + 1, north)) AddFaceData(x, y, z, Face.Front);
-            if (ShouldRenderFace(x, y, z - 1, south)) AddFaceData(x, y, z, Face.Back);
-            if (ShouldRenderFace(x - 1, y, z, west)) AddFaceData(x, y, z, Face.Left);
-            if (ShouldRenderFace(x + 1, y, z, east)) AddFaceData(x, y, z, Face.Right);
-            if (ShouldRenderFace(x, y + 1, z, null)) AddFaceData(x, y, z, Face.Top);
-            if (ShouldRenderFace(x, y - 1, z, null)) AddFaceData(x, y, z, Face.Bottom);
+            if (ShouldRenderFace(x, y, z + 1, north)) AddFaceData(x, y, z, Face.Front, west, east, north, south);
+            if (ShouldRenderFace(x, y, z - 1, south)) AddFaceData(x, y, z, Face.Back, west, east, north, south);
+            if (ShouldRenderFace(x - 1, y, z, west)) AddFaceData(x, y, z, Face.Left, west, east, north, south);
+            if (ShouldRenderFace(x + 1, y, z, east)) AddFaceData(x, y, z, Face.Right, west, east, north, south);
+            if (ShouldRenderFace(x, y + 1, z, null)) AddFaceData(x, y, z, Face.Top, west, east, north, south);
+            if (ShouldRenderFace(x, y - 1, z, null)) AddFaceData(x, y, z, Face.Bottom, west, east, north, south);
         }
     }
 
@@ -152,7 +159,7 @@ public class Chunk(Vector2i position)
         return !BlockRegistry.Get(neighborChunk.Blocks[localX, neighborY, localZ]).IsSolid;
     }
 
-    private void AddFaceData(int x, int y, int z, Face face)
+    private void AddFaceData(int x, int y, int z, Face face, Chunk west, Chunk east, Chunk north, Chunk south)
     {
         var blockDef = BlockRegistry.Get(Blocks[x, y, z]);
         var rawVerts = BlockGeometry.RawVertexData[face];
@@ -163,18 +170,156 @@ public class Chunk(Vector2i position)
         var uvs = blockDef.GetUvs(face);
         _uvs.AddRange(uvs);
 
-        AddIndices();
+        var faceAo = new float[4];
+        for (var i = 0; i < 4; i++)
+        {
+            faceAo[i] = GetAo(x, y, z, face, i, west, east, north, south);
+            _ao.Add(faceAo[i]);
+        }
+
+        AddIndices(faceAo);
     }
 
-    private void AddIndices()
+    private void AddIndices(float[] faceAo)
     {
         var baseIndex = _vertices.Count - 4;
-        _indices.Add((uint)baseIndex);
-        _indices.Add((uint)(baseIndex + 1));
-        _indices.Add((uint)(baseIndex + 2));
-        _indices.Add((uint)(baseIndex + 2));
-        _indices.Add((uint)(baseIndex + 3));
-        _indices.Add((uint)baseIndex);
+
+        if (faceAo[0] + faceAo[2] > faceAo[1] + faceAo[3])
+        {
+            _indices.Add((uint)baseIndex);
+            _indices.Add((uint)(baseIndex + 1));
+            _indices.Add((uint)(baseIndex + 2));
+
+            _indices.Add((uint)(baseIndex + 2));
+            _indices.Add((uint)(baseIndex + 3));
+            _indices.Add((uint)baseIndex);
+        }
+        else
+        {
+            _indices.Add((uint)(baseIndex + 1));
+            _indices.Add((uint)(baseIndex + 2));
+            _indices.Add((uint)(baseIndex + 3));
+
+            _indices.Add((uint)(baseIndex + 3));
+            _indices.Add((uint)baseIndex);
+            _indices.Add((uint)(baseIndex + 1));
+        }
+    }
+
+    private bool IsBlockSolid(int x, int y, int z, Chunk west, Chunk east, Chunk north, Chunk south)
+    {
+        if (y is < 0 or >= Height) return false;
+
+        if (x is >= 0 and < Size && z is >= 0 and < Size)
+            return BlockRegistry.Get(Blocks[x, y, z]).IsSolid;
+
+        var localX = (x % Size + Size) % Size;
+        var localZ = (z % Size + Size) % Size;
+
+        switch (x)
+        {
+            case < 0 when z is >= 0 and < Size:
+                return BlockRegistry.Get(west.Blocks[localX, y, localZ]).IsSolid;
+            case >= Size when z is >= 0 and < Size:
+                return BlockRegistry.Get(east.Blocks[localX, y, localZ]).IsSolid;
+        }
+
+        switch (z)
+        {
+            case < 0 when x is >= 0 and < Size:
+                return BlockRegistry.Get(south.Blocks[localX, y, localZ]).IsSolid;
+            case >= Size when x is >= 0 and < Size:
+                return BlockRegistry.Get(north.Blocks[localX, y, localZ]).IsSolid;
+            default:
+                return false;
+        }
+    }
+
+    private float GetAo(int x, int y, int z, Face face, int vertexIndex, Chunk west, Chunk east, Chunk north, Chunk south)
+    {
+        int x1 = 0, y1 = 0, z1 = 0;
+        int x2 = 0, y2 = 0, z2 = 0;
+
+        switch (face)
+        {
+            case Face.Front:
+                switch (vertexIndex)
+                {
+                    case 0: x1 = -1; y1 = 0; x2 = 0; y2 = -1; break;
+                    case 1: x1 = 1; y1 = 0; x2 = 0; y2 = -1; break;
+                    case 2: x1 = 1; y1 = 0; x2 = 0; y2 = 1; break;
+                    case 3: x1 = -1; y1 = 0; x2 = 0; y2 = 1; break;
+                }
+                z1 = 1; z2 = 1;
+                break;
+
+            case Face.Back:
+                switch (vertexIndex)
+                {
+                    case 0: x1 = 1; y1 = 0; x2 = 0; y2 = -1; break;
+                    case 1: x1 = -1; y1 = 0; x2 = 0; y2 = -1; break;
+                    case 2: x1 = -1; y1 = 0; x2 = 0; y2 = 1; break;
+                    case 3: x1 = 1; y1 = 0; x2 = 0; y2 = 1; break;
+                }
+                z1 = -1; z2 = -1;
+                break;
+
+            case Face.Right:
+                switch (vertexIndex)
+                {
+                    case 0: z1 = 1; y1 = 0; z2 = 0; y2 = -1; break;
+                    case 1: z1 = -1; y1 = 0; z2 = 0; y2 = -1; break;
+                    case 2: z1 = -1; y1 = 0; z2 = 0; y2 = 1; break;
+                    case 3: z1 = 1; y1 = 0; z2 = 0; y2 = 1; break;
+                }
+                x1 = 1; x2 = 1;
+                break;
+
+            case Face.Left:
+                switch (vertexIndex)
+                {
+                    case 0: z1 = -1; y1 = 0; z2 = 0; y2 = -1; break;
+                    case 1: z1 = 1; y1 = 0; z2 = 0; y2 = -1; break;
+                    case 2: z1 = 1; y1 = 0; z2 = 0; y2 = 1; break;
+                    case 3: z1 = -1; y1 = 0; z2 = 0; y2 = 1; break;
+                }
+                x1 = -1; x2 = -1;
+                break;
+
+            case Face.Top:
+                switch (vertexIndex)
+                {
+                    case 0: x1 = -1; z1 = 0; x2 = 0; z2 = 1; break;
+                    case 1: x1 = 1; z1 = 0; x2 = 0; z2 = 1; break;
+                    case 2: x1 = 1; z1 = 0; x2 = 0; z2 = -1; break;
+                    case 3: x1 = -1; z1 = 0; x2 = 0; z2 = -1; break;
+                }
+                y1 = 1; y2 = 1;
+                break;
+
+            case Face.Bottom:
+                switch (vertexIndex)
+                {
+                    case 0: x1 = -1; z1 = 0; x2 = 0; z2 = -1; break;
+                    case 1: x1 = 1; z1 = 0; x2 = 0; z2 = -1; break;
+                    case 2: x1 = 1; z1 = 0; x2 = 0; z2 = 1; break;
+                    case 3: x1 = -1; z1 = 0; x2 = 0; z2 = 1; break;
+                }
+                y1 = -1; y2 = -1;
+                break;
+        }
+
+        var side1 = IsBlockSolid(x + x1, y + y1, z + z1, west, east, north, south);
+        var side2 = IsBlockSolid(x + x2, y + y2, z + z2, west, east, north, south);
+
+        var corner = IsBlockSolid(x + x1 + x2, y + y1 + y2, z + z1 + z2, west, east, north, south);
+
+        var occlusion = 0;
+        if (side1) occlusion++;
+        if (side2) occlusion++;
+        if (corner) occlusion++;
+
+        return 1.0f - occlusion * 0.25f;
     }
 
     public void Render(ShaderProgram program)
@@ -192,6 +337,7 @@ public class Chunk(Vector2i position)
         _vao?.Delete();
         _vboVerts?.Delete();
         _vboUvs?.Delete();
+        _vboAo?.Delete();
         _ebo?.Delete();
     }
 }
