@@ -37,7 +37,8 @@ public class BlockOutline : IDisposable
         _vao = new Vao();
         _vao.Bind();
 
-        _vbo = new Vbo(vertices);
+        _vbo = new Vbo();
+        _vbo.UploadData(vertices);
         _vao.LinkToVao(0, 3, _vbo);
 
         _vao.Unbind();
@@ -70,8 +71,8 @@ public class BlockOutline : IDisposable
 
     public void Dispose()
     {
-        _vao.Delete();
-        _vbo.Delete();
-        _shader.Delete();
+        _vao.Dispose();
+        _vbo.Dispose();
+        _shader.Dispose();
     }
 }

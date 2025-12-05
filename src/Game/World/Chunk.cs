@@ -1,14 +1,15 @@
-﻿using Game.Graphics;
+﻿using Game.Core;
+using Game.Graphics;
 using Libs;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 
 namespace Game.World;
 
-public class Chunk(Vector2i position)
+public class Chunk(ChunkPos position)
 {
-    public readonly Vector2i Position = position;
-    public BlockType[,,] Blocks = new BlockType[Size, Height, Size];
+    public readonly ChunkPos Position = position;
+    private readonly BlockType[] _blocks = new BlockType[Size * Size * Height];
 
     // Data calculated by worker threads
     private readonly List<Vector3> _vertices = [];
@@ -67,19 +68,23 @@ public class Chunk(Vector2i position)
 
         lock (MeshGenLock)
         {
-            _vboVerts = new Vbo(_vertices);
+            _vboVerts = new Vbo();
+            _vboVerts.UploadData(_vertices);
             _vboVerts.Bind();
             _vao.LinkToVao(0, 3, _vboVerts);
 
-            _vboUvs = new Vbo(_uvs);
+            _vboUvs = new Vbo();
+            _vboUvs.UploadData(_uvs);
             _vboUvs.Bind();
             _vao.LinkToVao(1, 2, _vboUvs);
 
-            _vboAo = new Vbo(_ao);
+            _vboAo = new Vbo();
+            _vboAo.UploadData(_ao);
             _vboAo.Bind();
             _vao.LinkToVao(2, 1, _vboAo);
 
-            _ebo = new Ebo(_indices);
+            _ebo = new Ebo();
+            _ebo.UploadData(_indices);
         }
 
         IsActive = true;
@@ -99,7 +104,7 @@ public class Chunk(Vector2i position)
         for (var x = 0; x < Size; x++)
         for (var z = 0; z < Size; z++)
         {
-            var rawNoise = noise.GetNoise(Position.X + x, Position.Y + z);
+            var rawNoise = noise.GetNoise(Position.X + x, Position.Z + z);
             heightmap[x, z] = (int)(baseHeight + rawNoise * amplitude);
         }
         return heightmap;
@@ -120,7 +125,7 @@ public class Chunk(Vector2i position)
                 else if (y == columnHeight - 1) 
                     blockType = BlockType.Grass;
 
-                Blocks[x, y, z] = blockType;
+                SetBlock(x, y, z, blockType);
             }
         }
     }
@@ -131,7 +136,7 @@ public class Chunk(Vector2i position)
         for (var y = 0; y < Height; y++)
         for (var z = 0; z < Size; z++)
         {
-            if (Blocks[x, y, z] == BlockType.Air) continue;
+            if (GetBlock(x, y, z) == BlockType.Air) continue;
 
             if (ShouldRenderFace(x, y, z + 1, north)) AddFaceData(x, y, z, Face.Front, west, east, north, south);
             if (ShouldRenderFace(x, y, z - 1, south)) AddFaceData(x, y, z, Face.Back, west, east, north, south);
@@ -148,7 +153,7 @@ public class Chunk(Vector2i position)
             return true;
 
         if (neighborX is >= 0 and < Size && neighborZ is >= 0 and < Size)
-            return !BlockRegistry.Get(Blocks[neighborX, neighborY, neighborZ]).IsSolid;
+            return !BlockRegistry.Get(GetBlock(neighborX, neighborY, neighborZ)).IsSolid;
 
         if (neighborChunk == null)
             return true;
@@ -156,16 +161,16 @@ public class Chunk(Vector2i position)
         var localX = (neighborX + Size) % Size;
         var localZ = (neighborZ + Size) % Size;
 
-        return !BlockRegistry.Get(neighborChunk.Blocks[localX, neighborY, localZ]).IsSolid;
+        return !BlockRegistry.Get(neighborChunk.GetBlock(localX, neighborY, localZ)).IsSolid;
     }
 
     private void AddFaceData(int x, int y, int z, Face face, Chunk west, Chunk east, Chunk north, Chunk south)
     {
-        var blockDef = BlockRegistry.Get(Blocks[x, y, z]);
+        var blockDef = BlockRegistry.Get(GetBlock(x, y, z));
         var rawVerts = BlockGeometry.RawVertexData[face];
 
         foreach (var vert in rawVerts)
-            _vertices.Add(vert + new Vector3(Position.X + x, y, Position.Y + z));
+            _vertices.Add(vert + new Vector3(Position.X + x, y, Position.Z + z));
 
         var uvs = blockDef.GetUvs(face);
         _uvs.AddRange(uvs);
@@ -211,7 +216,7 @@ public class Chunk(Vector2i position)
         if (y is < 0 or >= Height) return false;
 
         if (x is >= 0 and < Size && z is >= 0 and < Size)
-            return BlockRegistry.Get(Blocks[x, y, z]).IsSolid;
+            return BlockRegistry.Get(GetBlock(x, y, z)).IsSolid;
 
         var localX = (x % Size + Size) % Size;
         var localZ = (z % Size + Size) % Size;
@@ -219,17 +224,17 @@ public class Chunk(Vector2i position)
         switch (x)
         {
             case < 0 when z is >= 0 and < Size:
-                return BlockRegistry.Get(west.Blocks[localX, y, localZ]).IsSolid;
+                return BlockRegistry.Get(west.GetBlock(localX, y, localZ)).IsSolid;
             case >= Size when z is >= 0 and < Size:
-                return BlockRegistry.Get(east.Blocks[localX, y, localZ]).IsSolid;
+                return BlockRegistry.Get(east.GetBlock(localX, y, localZ)).IsSolid;
         }
 
         switch (z)
         {
             case < 0 when x is >= 0 and < Size:
-                return BlockRegistry.Get(south.Blocks[localX, y, localZ]).IsSolid;
+                return BlockRegistry.Get(south.GetBlock(localX, y, localZ)).IsSolid;
             case >= Size when x is >= 0 and < Size:
-                return BlockRegistry.Get(north.Blocks[localX, y, localZ]).IsSolid;
+                return BlockRegistry.Get(north.GetBlock(localX, y, localZ)).IsSolid;
             default:
                 return false;
         }
@@ -322,6 +327,21 @@ public class Chunk(Vector2i position)
         return 1.0f - occlusion * 0.25f;
     }
 
+    public BlockType GetBlock(int x, int y, int z)
+    {
+        return _blocks[GetIndex(x, y, z)];
+    }
+
+    public void SetBlock(int x, int y, int z, BlockType type)
+    {
+        _blocks[GetIndex(x, y, z)] = type;
+    }
+
+    private int GetIndex(int x, int y, int z)
+    {
+        return y * 16 * 16 + z * 16 + x;
+    }
+
     public void Render(ShaderProgram program)
     {
         if (!IsActive) return;
@@ -334,10 +354,10 @@ public class Chunk(Vector2i position)
 
     public void Delete()
     {
-        _vao?.Delete();
-        _vboVerts?.Delete();
-        _vboUvs?.Delete();
-        _vboAo?.Delete();
-        _ebo?.Delete();
+        _vao?.Dispose();
+        _vboVerts?.Dispose();
+        _vboUvs?.Dispose();
+        _vboAo?.Dispose();
+        _ebo?.Dispose();
     }
 }

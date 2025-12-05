@@ -1,4 +1,5 @@
-﻿using OpenTK.Mathematics;
+﻿using Game.Core;
+using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
@@ -12,7 +13,7 @@ public class Camera(float width, float height)
     public float ScreenWidth { get; set; } = width;
     public float ScreenHeight { get; set; } = height;
 
-    public Vector3 Position;
+    public GlobalPos Position;
 
     public Vector3 Up { get; private set; } = Vector3.UnitY;
     public Vector3 Front { get; private set; } = -Vector3.UnitZ;
@@ -23,7 +24,7 @@ public class Camera(float width, float height)
 
     public Matrix4 GetViewMatrix()
     {
-        return Matrix4.LookAt(Position, Position + Front, Up);
+        return Matrix4.LookAt((Vector3)Position, (Vector3)Position + Front, Up);
     }
 
     public Matrix4 GetProjectionMatrix()

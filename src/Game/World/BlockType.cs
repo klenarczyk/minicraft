@@ -1,6 +1,6 @@
 ﻿namespace Game.World;
 
-public enum BlockType
+public enum BlockType : ushort
 {
     Air,
     Dirt,

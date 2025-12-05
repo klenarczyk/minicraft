@@ -1,4 +1,5 @@
-﻿using Game.Ecs.Components;
+﻿using Game.Core;
+using Game.Ecs.Components;
 using Game.World;
 using OpenTK.Mathematics;
 
@@ -49,7 +50,7 @@ public class PhysicsSystem(WorldManager world)
 
     }
 
-    private bool CheckCollision(Vector3 min, Vector3 max)
+    private bool CheckCollision(GlobalPos min, GlobalPos max)
     {
         var startX = (int)Math.Floor(min.X);
         var endX = (int)Math.Floor(max.X - Epsilon);
@@ -62,7 +63,7 @@ public class PhysicsSystem(WorldManager world)
         for (var y = startY; y <= endY; y++)
         for (var z = startZ; z <= endZ; z++)
         {
-            var block = world.GetBlockAt(new Vector3(x, y, z));
+            var block = world.GetBlockAt(new BlockPos(x, y, z));
             if (BlockRegistry.Get(block).IsSolid)
                 return true;
         }

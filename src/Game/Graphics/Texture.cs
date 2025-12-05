@@ -3,16 +3,17 @@ using StbImageSharp;
 
 namespace Game.Graphics;
 
-public class Texture
+public class Texture : IDisposable
 {
-    public int Id;
+    public readonly int Id;
+    private bool _disposed;
 
     public Texture(string filePath)
     {
         Id = GL.GenTexture();
 
         GL.ActiveTexture(TextureUnit.Texture0);
-        GL.BindTexture(TextureTarget.Texture2D, Id);
+        Bind();
 
         GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
         GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
@@ -43,8 +44,11 @@ public class Texture
         GL.BindTexture(TextureTarget.Texture2D, 0);
     }
 
-    public void Delete()
+    public void Dispose()
     {
+        if (_disposed) return;
         GL.DeleteTexture(Id);
+        _disposed = true;
+        GC.SuppressFinalize(this);
     }
 }

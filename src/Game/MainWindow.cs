@@ -1,4 +1,5 @@
-﻿using Game.Ecs;
+﻿using Game.Core;
+using Game.Ecs;
 using Game.Ecs.Components;
 using Game.Ecs.Systems;
 using Game.Graphics;
@@ -26,10 +27,10 @@ public class MainWindow : GameWindow
     private BlockOutline? _outline;
     private RaycastResult _currentHit = new() { Hit = false };
 
+    private GuiRenderer? _gui;
+
     private bool _freezeFrustum;
     private bool _wireframeEnabled;
-
-    private GuiRenderer? _gui;
 
     private readonly int _screenWidth;
     private readonly int _screenHeight;
@@ -48,7 +49,7 @@ public class MainWindow : GameWindow
     {
         base.OnLoad();
 
-        var startingPos = new Vector3(0f, 50f, 0f);
+        var startingPos = new GlobalPos(0.0, 50.0, 0.0);
         _world = new WorldManager(startingPos);
         _program = new ShaderProgram("Default.vert", "Default.frag");
         _camera = new Camera(_screenWidth, _screenHeight);
@@ -78,8 +79,8 @@ public class MainWindow : GameWindow
     {
         base.OnUnload();
 
-        _world?.Delete();
-        _program?.Delete();
+        _world?.Dispose();
+        _program?.Dispose();
         _outline?.Dispose();
         _gui?.Dispose();
     }
@@ -190,10 +191,10 @@ public class MainWindow : GameWindow
         if (MouseState.IsButtonPressed(MouseButton.Right) && _currentHit.Hit && CursorState == CursorState.Grabbed)
         {
             var playerFootPos = _player.GetComponent<PositionComponent>().Position;
-            var playerGridPos = new Vector3i((int)Math.Floor(playerFootPos.X), (int)Math.Floor(playerFootPos.Y), (int)Math.Floor(playerFootPos.Z));
+            var playerGridPos = new BlockPos((int)Math.Floor(playerFootPos.X), (int)Math.Floor(playerFootPos.Y), (int)Math.Floor(playerFootPos.Z));
             var placePos = _currentHit.PlacePosition;
 
-            if (placePos != playerGridPos && placePos != playerGridPos + new Vector3i(0, 1, 0))
+            if (placePos != playerGridPos && placePos != playerGridPos + new BlockPos(0, 1, 0))
                 _world.SetBlockAt(placePos, BlockType.Dirt);
         }
 
@@ -202,7 +203,7 @@ public class MainWindow : GameWindow
         _physicsSystem.Update(_player, (float)args.Time);
 
         var playerPos = _player.GetComponent<PositionComponent>().Position;
-        _camera.Position = playerPos + new Vector3(0, 1.62f, 0); // Eye level offset
+        _camera.Position = playerPos + new GlobalPos(0.0, 1.62, 0.0); // Eye level offset
     }
 
     protected override void OnResize(ResizeEventArgs e)

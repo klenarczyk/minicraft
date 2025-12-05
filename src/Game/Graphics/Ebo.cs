@@ -1,20 +1,21 @@
 ﻿using OpenTK.Graphics.OpenGL4;
+using System.Runtime.InteropServices;
 
 namespace Game.Graphics;
 
-public class Ebo
+public class Ebo() : IDisposable
 {
-    public int Id;
-    public int Count { get; }
+    public readonly int Id = GL.GenBuffer();
+    private bool _disposed;
+    public int Count { get; private set; }
 
-    public Ebo(List<uint> indices)
+    public void UploadData<T>(List<T> data, BufferUsageHint hint = BufferUsageHint.StaticDraw) where T : struct
     {
-        Id = GL.GenBuffer();
-        Count = indices.Count;
-
+        Count = data.Count;
         Bind();
-        GL.BufferData(BufferTarget.ElementArrayBuffer, indices.Count * sizeof(uint), indices.ToArray(),
-            BufferUsageHint.StaticDraw);
+        var span = CollectionsMarshal.AsSpan(data);
+        var sizeInBytes = data.Count * Marshal.SizeOf<T>();
+        GL.BufferData(BufferTarget.ElementArrayBuffer, sizeInBytes, ref span[0], hint);
     }
 
     public void Bind()
@@ -27,8 +28,11 @@ public class Ebo
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0);
     }
 
-    public void Delete()
+    public void Dispose()
     {
+        if (_disposed) return;
         GL.DeleteBuffer(Id);
+        _disposed = true;
+        GC.SuppressFinalize(this);
     }
 }

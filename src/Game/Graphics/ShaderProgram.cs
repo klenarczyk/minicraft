@@ -2,9 +2,10 @@
 
 namespace Game.Graphics;
 
-public class ShaderProgram
+public class ShaderProgram : IDisposable
 {
-    public int Id;
+    public readonly int Id;
+    private bool _disposed;
 
     public ShaderProgram(string vertexShaderPath, string fragmentShaderPath)
     { 
@@ -23,7 +24,7 @@ public class ShaderProgram
 
         GL.LinkProgram(Id);
 
-        // Delete shaders as they're linked into our program now and no longer necessary
+        // Dispose shaders as they're linked into our program now and no longer necessary
         GL.DeleteShader(vertexShader);
         GL.DeleteShader(fragmentShader);
     }
@@ -38,9 +39,12 @@ public class ShaderProgram
         GL.UseProgram(0);
     }
 
-    public void Delete()
+    public void Dispose()
     {
+        if (_disposed) return;
         GL.DeleteShader(Id);
+        _disposed = true;
+        GC.SuppressFinalize(this);
     }
 
     private static string LoadShaderSource(string filePath)

@@ -41,7 +41,8 @@ public class GuiRenderer : IDisposable
         _vao = new Vao();
         _vao.Bind();
 
-        _vbo = new Vbo(vertices);
+        _vbo = new Vbo();
+        _vbo.UploadData(vertices);
 
         const int stride = 4 * sizeof(float);
         GL.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, stride, 0);
@@ -113,9 +114,9 @@ public class GuiRenderer : IDisposable
 
     public void Dispose()
     {
-        _vao?.Delete();
-        _vbo?.Delete();
-        _shader?.Delete();
-        _texture?.Delete();
+        _vao?.Dispose();
+        _vbo?.Dispose();
+        _shader?.Dispose();
+        _texture?.Dispose();
     }
 }

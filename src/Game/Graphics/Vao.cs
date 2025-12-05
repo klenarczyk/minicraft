@@ -3,15 +3,10 @@ using OpenTK.Mathematics;
 
 namespace Game.Graphics;
 
-public class Vao
+public class Vao : IDisposable
 {
-    public int Id;
-
-    public Vao()
-    {
-        Id = GL.GenVertexArray();
-        GL.BindVertexArray(Id);
-    }
+    public readonly int Id = GL.GenVertexArray();
+    private bool _disposed;
 
     public void LinkToVao(int location, int size, Vbo vbo)
     {
@@ -32,8 +27,11 @@ public class Vao
         GL.BindVertexArray(0);
     }
 
-    public void Delete()
+    public void Dispose()
     {
+        if (_disposed) return;
         GL.DeleteVertexArray(Id);
+        _disposed = true;
+        GC.SuppressFinalize(this);
     }
 }

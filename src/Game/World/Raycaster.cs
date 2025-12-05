@@ -1,10 +1,11 @@
-﻿using OpenTK.Mathematics;
+﻿using Game.Core;
+using OpenTK.Mathematics;
 
 namespace Game.World;
 
 public class Raycaster(WorldManager world)
 {
-    public RaycastResult Raycast(Vector3 origin, Vector3 direction, float reach)
+    public RaycastResult Raycast(GlobalPos origin, Vector3 direction, float reach)
     {
         direction = Vector3.Normalize(direction);
 
@@ -23,27 +24,27 @@ public class Raycaster(WorldManager world)
 
         float tMaxX, tMaxY, tMaxZ;
 
-        if (stepX > 0) tMaxX = (x + 1 - origin.X) * tDeltaX;
-        else tMaxX = (origin.X - x) * tDeltaX;
+        if (stepX > 0) tMaxX = (x + 1 - (float)origin.X) * tDeltaX;
+        else tMaxX = ((float)origin.X - x) * tDeltaX;
 
-        if (stepY > 0) tMaxY = (y + 1 - origin.Y) * tDeltaY;
-        else tMaxY = (origin.Y - y) * tDeltaY;
+        if (stepY > 0) tMaxY = (y + 1 - (float)origin.Y) * tDeltaY;
+        else tMaxY = ((float)origin.Y - y) * tDeltaY;
 
-        if (stepZ > 0) tMaxZ = (z + 1 - origin.Z) * tDeltaZ;
-        else tMaxZ = (origin.Z - z) * tDeltaZ;
+        if (stepZ > 0) tMaxZ = (z + 1 - (float)origin.Z) * tDeltaZ;
+        else tMaxZ = ((float)origin.Z - z) * tDeltaZ;
 
         var distance = 0f;
         var normal = Vector3i.Zero;
 
         while (distance <= reach)
         {
-            var block = world.GetBlockAt(new Vector3(x, y, z));
+            var block = world.GetBlockAt(new BlockPos(x, y, z));
             if (BlockRegistry.Get(block).IsSolid)
             {
                 return new RaycastResult
                 {
                     Hit = true,
-                    BlockPosition = new Vector3i(x, y, z),
+                    BlockPosition = new BlockPos(x, y, z),
                     FaceNormal = normal
                 };
             }

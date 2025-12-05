@@ -1,31 +1,19 @@
 ﻿using OpenTK.Graphics.OpenGL4;
-using OpenTK.Mathematics;
+using System.Runtime.InteropServices;
 
 namespace Game.Graphics;
 
-public class Vbo
+public class Vbo : IDisposable
 {
-    public int Id;
+    public readonly int Id = GL.GenBuffer();
+    private bool _disposed;
 
-    public Vbo(List<Vector3> data)
+    public void UploadData<T>(List<T> data, BufferUsageHint hint = BufferUsageHint.StaticDraw) where T : struct
     {
-        Id = GL.GenBuffer();
-        GL.BindBuffer(BufferTarget.ArrayBuffer, Id);
-        GL.BufferData(BufferTarget.ArrayBuffer, data.Count * Vector3.SizeInBytes, data.ToArray(), BufferUsageHint.StaticDraw);
-    }
-
-    public Vbo(List<Vector2> data)
-    {
-        Id = GL.GenBuffer();
-        GL.BindBuffer(BufferTarget.ArrayBuffer, Id);
-        GL.BufferData(BufferTarget.ArrayBuffer, data.Count * Vector2.SizeInBytes, data.ToArray(), BufferUsageHint.StaticDraw);
-    }
-
-    public Vbo(List<float> data)
-    {
-        Id = GL.GenBuffer();
-        GL.BindBuffer(BufferTarget.ArrayBuffer, Id);
-        GL.BufferData(BufferTarget.ArrayBuffer, data.Count * sizeof(float), data.ToArray(), BufferUsageHint.StaticDraw);
+        Bind();
+        var span = CollectionsMarshal.AsSpan(data);
+        var sizeInBytes = data.Count * Marshal.SizeOf<T>();
+        GL.BufferData(BufferTarget.ArrayBuffer, sizeInBytes, ref span[0], hint);
     }
 
     public void Bind()
@@ -38,8 +26,11 @@ public class Vbo
         GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
     }
 
-    public void Delete()
+    public void Dispose()
     {
+        if (_disposed) return;
         GL.DeleteBuffer(Id);
+        _disposed = true;
+        GC.SuppressFinalize(this);
     }
 }

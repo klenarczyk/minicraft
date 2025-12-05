@@ -1,33 +1,33 @@
 ﻿using Game.Graphics;
 using OpenTK.Mathematics;
 using System.Collections.Concurrent;
+using Game.Core;
 
 namespace Game.World;
 
-public class WorldManager
+public class WorldManager : IDisposable
 {
-    private readonly ConcurrentDictionary<Vector2i, Chunk> _activeChunks = new();
+    private readonly ConcurrentDictionary<ChunkPos, Chunk> _activeChunks = new();
     private readonly ConcurrentQueue<Chunk> _uploadQueue = new();
+    private readonly ConcurrentDictionary<ChunkPos, bool> _chunksProcessingData = new();
 
     private const int RenderDistance = 8;
     private const int LoadDistance = RenderDistance + 1;
 
-    private readonly Vector2i[] _chunkUpdatePattern;
-    private Vector2i _lastChunkCoord;
+    private readonly ChunkPos[] _chunkUpdatePattern;
+    private ChunkPos _lastChunkCoord;
     private readonly Texture _textureAtlas;
 
-    private readonly ConcurrentDictionary<Vector2i, bool> _chunksProcessingData = new();
-
-    public WorldManager(Vector3 startingPos)
+    public WorldManager(GlobalPos startingPos)
     {
         _textureAtlas = new Texture("block_atlas.png");
-        _lastChunkCoord = new Vector2i(int.MaxValue, int.MaxValue);
+        _lastChunkCoord = new ChunkPos(int.MaxValue, int.MaxValue);
 
         _chunkUpdatePattern = GenerateChunkUpdatePattern(LoadDistance);
         UpdateWorld(startingPos);
     }
 
-    public void Render(ShaderProgram program, Vector3 cameraPosition)
+    public void Render(ShaderProgram program, GlobalPos cameraPosition)
     {
         UpdateWorld(cameraPosition);
         ProcessUploadQueue();
@@ -37,15 +37,15 @@ public class WorldManager
 
         foreach (var chunk in _activeChunks.Values)
         {
-            var min = new Vector3(chunk.Position.X, 0, chunk.Position.Y);
-            var max = new Vector3(chunk.Position.X + Chunk.Size, Chunk.Height, chunk.Position.Y + Chunk.Size);
+            var min = new Vector3(chunk.Position.X, 0, chunk.Position.Z);
+            var max = new Vector3(chunk.Position.X + Chunk.Size, Chunk.Height, chunk.Position.Z + Chunk.Size);
 
             if (chunk is { IsActive: true, IsMeshGenerated: true } && Frustum.IsBoxVisible(min, max))
                 chunk.Render(program);
         }
     }
 
-    private void UpdateWorld(Vector3 cameraPosition)
+    private void UpdateWorld(GlobalPos cameraPosition)
     {
         var currentChunkCoords = WorldToChunkCoords(cameraPosition);
         if (currentChunkCoords == _lastChunkCoord) return;
@@ -53,11 +53,11 @@ public class WorldManager
         _lastChunkCoord = currentChunkCoords;
 
         // Remove chunks outside data distance
-        List<Vector2i> toRemove = [];
+        List<ChunkPos> toRemove = [];
         foreach (var key in _activeChunks.Keys)
         {
             if (Math.Abs(key.X - currentChunkCoords.X) > RenderDistance ||
-                Math.Abs(key.Y - currentChunkCoords.Y) > RenderDistance)
+                Math.Abs(key.Z - currentChunkCoords.Z) > RenderDistance)
             {
                 toRemove.Add(key);
             }
@@ -81,9 +81,9 @@ public class WorldManager
         }
     }
 
-    private void SpawnChunkGeneration(Vector2i chunkCoord)
+    private void SpawnChunkGeneration(ChunkPos chunkCoord)
     {
-        var chunkPosition = new Vector2i(chunkCoord.X * Chunk.Size, chunkCoord.Y * Chunk.Size);
+        var chunkPosition = new ChunkPos(chunkCoord.X * Chunk.Size, chunkCoord.Z * Chunk.Size);
         var newChunk = new Chunk(chunkPosition);
 
         if (!_chunksProcessingData.TryAdd(chunkCoord, true)) return;
@@ -97,10 +97,10 @@ public class WorldManager
                 _activeChunks.TryAdd(chunkCoord, newChunk);
 
                 CheckAndRequestMesh(chunkCoord);
-                CheckAndRequestMesh(chunkCoord + new Vector2i(-1, 0));
-                CheckAndRequestMesh(chunkCoord + new Vector2i(1, 0));
-                CheckAndRequestMesh(chunkCoord + new Vector2i(0, -1));
-                CheckAndRequestMesh(chunkCoord + new Vector2i(0, 1));
+                CheckAndRequestMesh(chunkCoord + new ChunkPos(-1, 0));
+                CheckAndRequestMesh(chunkCoord + new ChunkPos(1, 0));
+                CheckAndRequestMesh(chunkCoord + new ChunkPos(0, -1));
+                CheckAndRequestMesh(chunkCoord + new ChunkPos(0, 1));
             }
             catch (Exception e)
             {
@@ -114,21 +114,21 @@ public class WorldManager
         });
     }
 
-    private void CheckAndRequestMesh(Vector2i chunkCoord)
+    private void CheckAndRequestMesh(ChunkPos chunkCoord)
     {
         if (!_activeChunks.TryGetValue(chunkCoord, out var chunk)) return;
         if (chunk.MeshGenerationRequested) return;
         if (!chunk.IsDataGenerated) return;
 
         var distX = (long)chunkCoord.X - _lastChunkCoord.X;
-        var distY = (long)chunkCoord.Y - _lastChunkCoord.Y;
+        var distY = (long)chunkCoord.Z - _lastChunkCoord.Z;
 
         if (Math.Abs(distX) > RenderDistance || Math.Abs(distY) > RenderDistance) return;
 
-        if (!_activeChunks.TryGetValue(chunkCoord + new Vector2i(-1, 0), out var west) || !west.IsDataGenerated) return;
-        if (!_activeChunks.TryGetValue(chunkCoord + new Vector2i(1, 0), out var east) || !east.IsDataGenerated) return;
-        if (!_activeChunks.TryGetValue(chunkCoord + new Vector2i(0, 1), out var north) || !north.IsDataGenerated) return;
-        if (!_activeChunks.TryGetValue(chunkCoord + new Vector2i(0, -1), out var south) || !south.IsDataGenerated) return;
+        if (!_activeChunks.TryGetValue(chunkCoord + new ChunkPos(-1, 0), out var west) || !west.IsDataGenerated) return;
+        if (!_activeChunks.TryGetValue(chunkCoord + new ChunkPos(1, 0), out var east) || !east.IsDataGenerated) return;
+        if (!_activeChunks.TryGetValue(chunkCoord + new ChunkPos(0, 1), out var north) || !north.IsDataGenerated) return;
+        if (!_activeChunks.TryGetValue(chunkCoord + new ChunkPos(0, -1), out var south) || !south.IsDataGenerated) return;
 
         lock (chunk.MeshGenLock)
         {
@@ -168,43 +168,51 @@ public class WorldManager
         }
     }
 
-    private static Vector2i[] GenerateChunkUpdatePattern(int distance)
+    private static ChunkPos[] GenerateChunkUpdatePattern(int distance)
     {
-        var offsets = new List<Vector2i>();
+        var offsets = new List<ChunkPos>();
 
         for (var x = -distance; x <= distance; x++)
         {
             for (var z = -distance; z <= distance; z++)
             {
-                offsets.Add(new Vector2i(x, z));
+                offsets.Add(new ChunkPos(x, z));
             }
         }
 
         return offsets
-            .OrderBy(v => v.X * v.X + v.Y * v.Y)
+            .OrderBy(v => v.X * v.X + v.Z * v.Z)
             .ToArray();
     }
 
-    private static Vector2i WorldToChunkCoords(Vector3 position)
+    private static ChunkPos WorldToChunkCoords(GlobalPos position)
     {
-        var chunkX = (int)MathF.Floor(position.X / Chunk.Size);
-        var chunkZ = (int)MathF.Floor(position.Z / Chunk.Size);
-        return new Vector2i(chunkX, chunkZ);
+        var chunkX = (int)Math.Floor(position.X / Chunk.Size);
+        var chunkZ = (int)Math.Floor(position.Z / Chunk.Size);
+        return new ChunkPos(chunkX, chunkZ);
     }
 
-    public void Delete()
+    private static ChunkPos BlockToChunkCoords(BlockPos position)
+    {
+        var chunkX = (int)MathF.Floor((float)position.X / Chunk.Size);
+        var chunkZ = (int)MathF.Floor((float)position.Z / Chunk.Size);
+        return new ChunkPos(chunkX, chunkZ);
+    }
+
+    public void Dispose()
     {
         foreach (var chunk in _activeChunks.Values)
         {
             chunk.Delete();
         }
         _activeChunks.Clear();
-        _textureAtlas.Delete();
+        _textureAtlas.Dispose();
+        GC.SuppressFinalize(this);
     }
 
-    public BlockType GetBlockAt(Vector3 position)
+    public BlockType GetBlockAt(BlockPos position)
     {
-        var chunkCoords = WorldToChunkCoords(position);
+        var chunkCoords = BlockToChunkCoords(position);
         if (!_activeChunks.TryGetValue(chunkCoords, out var chunk))
             return BlockType.Air;
 
@@ -216,12 +224,12 @@ public class WorldManager
         if (localY is < 0 or >= Chunk.Height) return BlockType.Air;
         if (localZ < 0) localZ += Chunk.Size;
 
-        return chunk.Blocks[localX, localY, localZ];
+        return chunk.GetBlock(localX, localY, localZ);
     }
 
-    public void SetBlockAt(Vector3 position, BlockType block)
+    public void SetBlockAt(BlockPos position, BlockType block)
     {
-        var chunkCoords = WorldToChunkCoords(position);
+        var chunkCoords = BlockToChunkCoords(position);
         if (!_activeChunks.TryGetValue(chunkCoords, out var chunk))
             return;
 
@@ -229,26 +237,26 @@ public class WorldManager
         var localY = (int)(MathF.Floor(position.Y));
         var localZ = ((int)(MathF.Floor(position.Z) % Chunk.Size) + Chunk.Size) % Chunk.Size;
 
-        chunk.Blocks[localX, localY, localZ] = block;
+        chunk.SetBlock(localX, localY, localZ, block);
         CheckAndRequestMesh(chunkCoords);
 
         switch (localX)
         {
             case 0:
-                CheckAndRequestMesh(chunkCoords + new Vector2i(-1, 0));
+                CheckAndRequestMesh(chunkCoords + new ChunkPos(-1, 0));
                 break;
             case Chunk.Size - 1:
-                CheckAndRequestMesh(chunkCoords + new Vector2i(1, 0));
+                CheckAndRequestMesh(chunkCoords + new ChunkPos(1, 0));
                 break;
         }
 
         switch (localZ)
         {
             case 0:
-                CheckAndRequestMesh(chunkCoords + new Vector2i(0, -1));
+                CheckAndRequestMesh(chunkCoords + new ChunkPos(0, -1));
                 break;
             case Chunk.Size - 1:
-                CheckAndRequestMesh(chunkCoords + new Vector2i(0, 1));
+                CheckAndRequestMesh(chunkCoords + new ChunkPos(0, 1));
                 break;
         }
     }
