@@ -138,12 +138,12 @@ public class Chunk(ChunkPos position)
         {
             if (GetBlock(x, y, z) == BlockType.Air) continue;
 
-            if (ShouldRenderFace(x, y, z + 1, north)) AddFaceData(x, y, z, Face.Front, west, east, north, south);
-            if (ShouldRenderFace(x, y, z - 1, south)) AddFaceData(x, y, z, Face.Back, west, east, north, south);
-            if (ShouldRenderFace(x - 1, y, z, west)) AddFaceData(x, y, z, Face.Left, west, east, north, south);
-            if (ShouldRenderFace(x + 1, y, z, east)) AddFaceData(x, y, z, Face.Right, west, east, north, south);
-            if (ShouldRenderFace(x, y + 1, z, null)) AddFaceData(x, y, z, Face.Top, west, east, north, south);
-            if (ShouldRenderFace(x, y - 1, z, null)) AddFaceData(x, y, z, Face.Bottom, west, east, north, south);
+            if (ShouldRenderFace(x, y, z + 1, north)) AddFaceData(x, y, z, BlockFace.Front, west, east, north, south);
+            if (ShouldRenderFace(x, y, z - 1, south)) AddFaceData(x, y, z, BlockFace.Back, west, east, north, south);
+            if (ShouldRenderFace(x - 1, y, z, west)) AddFaceData(x, y, z, BlockFace.Left, west, east, north, south);
+            if (ShouldRenderFace(x + 1, y, z, east)) AddFaceData(x, y, z, BlockFace.Right, west, east, north, south);
+            if (ShouldRenderFace(x, y + 1, z, null)) AddFaceData(x, y, z, BlockFace.Top, west, east, north, south);
+            if (ShouldRenderFace(x, y - 1, z, null)) AddFaceData(x, y, z, BlockFace.Bottom, west, east, north, south);
         }
     }
 
@@ -164,21 +164,21 @@ public class Chunk(ChunkPos position)
         return !BlockRegistry.Get(neighborChunk.GetBlock(localX, neighborY, localZ)).IsSolid;
     }
 
-    private void AddFaceData(int x, int y, int z, Face face, Chunk west, Chunk east, Chunk north, Chunk south)
+    private void AddFaceData(int x, int y, int z, BlockFace blockFace, Chunk west, Chunk east, Chunk north, Chunk south)
     {
         var blockDef = BlockRegistry.Get(GetBlock(x, y, z));
-        var rawVerts = BlockGeometry.RawVertexData[face];
+        var rawVerts = BlockGeometry.RawVertexData[blockFace];
 
         foreach (var vert in rawVerts)
             _vertices.Add(vert + new Vector3(Position.X + x, y, Position.Z + z));
 
-        var uvs = blockDef.GetUvs(face);
+        var uvs = blockDef.GetUvs(blockFace);
         _uvs.AddRange(uvs);
 
         var faceAo = new float[4];
         for (var i = 0; i < 4; i++)
         {
-            faceAo[i] = GetAo(x, y, z, face, i, west, east, north, south);
+            faceAo[i] = GetAo(x, y, z, blockFace, i, west, east, north, south);
             _ao.Add(faceAo[i]);
         }
 
@@ -240,14 +240,14 @@ public class Chunk(ChunkPos position)
         }
     }
 
-    private float GetAo(int x, int y, int z, Face face, int vertexIndex, Chunk west, Chunk east, Chunk north, Chunk south)
+    private float GetAo(int x, int y, int z, BlockFace blockFace, int vertexIndex, Chunk west, Chunk east, Chunk north, Chunk south)
     {
         int x1 = 0, y1 = 0, z1 = 0;
         int x2 = 0, y2 = 0, z2 = 0;
 
-        switch (face)
+        switch (blockFace)
         {
-            case Face.Front:
+            case BlockFace.Front:
                 switch (vertexIndex)
                 {
                     case 0: x1 = -1; y1 = 0; x2 = 0; y2 = -1; break;
@@ -258,7 +258,7 @@ public class Chunk(ChunkPos position)
                 z1 = 1; z2 = 1;
                 break;
 
-            case Face.Back:
+            case BlockFace.Back:
                 switch (vertexIndex)
                 {
                     case 0: x1 = 1; y1 = 0; x2 = 0; y2 = -1; break;
@@ -269,7 +269,7 @@ public class Chunk(ChunkPos position)
                 z1 = -1; z2 = -1;
                 break;
 
-            case Face.Right:
+            case BlockFace.Right:
                 switch (vertexIndex)
                 {
                     case 0: z1 = 1; y1 = 0; z2 = 0; y2 = -1; break;
@@ -280,7 +280,7 @@ public class Chunk(ChunkPos position)
                 x1 = 1; x2 = 1;
                 break;
 
-            case Face.Left:
+            case BlockFace.Left:
                 switch (vertexIndex)
                 {
                     case 0: z1 = -1; y1 = 0; z2 = 0; y2 = -1; break;
@@ -291,7 +291,7 @@ public class Chunk(ChunkPos position)
                 x1 = -1; x2 = -1;
                 break;
 
-            case Face.Top:
+            case BlockFace.Top:
                 switch (vertexIndex)
                 {
                     case 0: x1 = -1; z1 = 0; x2 = 0; z2 = 1; break;
@@ -302,7 +302,7 @@ public class Chunk(ChunkPos position)
                 y1 = 1; y2 = 1;
                 break;
 
-            case Face.Bottom:
+            case BlockFace.Bottom:
                 switch (vertexIndex)
                 {
                     case 0: x1 = -1; z1 = 0; x2 = 0; z2 = -1; break;

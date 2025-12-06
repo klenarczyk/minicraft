@@ -2,7 +2,7 @@
 
 namespace Game.World;
 
-public enum Face
+public enum BlockFace
 {
     Front,
     Back,
@@ -14,39 +14,39 @@ public enum Face
 
 public static class BlockGeometry
 {
-    public static readonly Dictionary<Face, List<Vector3>> RawVertexData = new()
+    public static readonly Dictionary<BlockFace, List<Vector3>> RawVertexData = new()
     {
-        {Face.Front, [
+        {BlockFace.Front, [
             new Vector3(0f, 0f, 1f),
             new Vector3(1f, 0f, 1f),
             new Vector3(1f, 1f, 1f),
             new Vector3(0f, 1f, 1f)
         ]},
-        {Face.Back, [
+        {BlockFace.Back, [
             new Vector3(1f, 0f, 0f),
             new Vector3(0f, 0f, 0f),
             new Vector3(0f, 1f, 0f),
             new Vector3(1f, 1f, 0f)
         ]},
-        {Face.Right, [
+        {BlockFace.Right, [
             new Vector3(1f, 0f, 1f),
             new Vector3(1f, 0f, 0f),
             new Vector3(1f, 1f, 0f),
             new Vector3(1f, 1f, 1f)
         ]},
-        {Face.Left, [
+        {BlockFace.Left, [
             new Vector3(0f, 0f, 0f),
             new Vector3(0f, 0f, 1f),
             new Vector3(0f, 1f, 1f),
             new Vector3(0f, 1f, 0f)
         ]},
-        {Face.Top, [
+        {BlockFace.Top, [
             new Vector3(0f, 1f, 1f),
             new Vector3(1f, 1f, 1f),
             new Vector3(1f, 1f, 0f),
             new Vector3(0f, 1f, 0f)
         ]},
-        {Face.Bottom, [
+        {BlockFace.Bottom, [
             new Vector3(0f, 0f, 0f),
             new Vector3(1f, 0f, 0f),
             new Vector3(1f, 0f, 1f),

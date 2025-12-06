@@ -199,7 +199,7 @@ public class MainWindow : GameWindow
         }
 
         _camera.InputController(MouseState, args);
-        _inputSystem.Update(_player, _camera, KeyboardState);
+        _inputSystem.Update(_player, _camera, KeyboardState, (float)args.Time);
         _physicsSystem.Update(_player, (float)args.Time);
 
         var playerPos = _player.GetComponent<PositionComponent>().Position;

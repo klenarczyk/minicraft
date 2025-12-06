@@ -8,27 +8,27 @@ public static class BlockRegistry
 
     static BlockRegistry()
     {
-        Register(new BlockDefinition(BlockType.Air, false, new Dictionary<Face, Vector2>()));
+        Register(new BlockDefinition(BlockType.Air, false, new Dictionary<BlockFace, Vector2>()));
 
-        Dictionary<Face, Vector2> dirtCoords = new()
+        Dictionary<BlockFace, Vector2> dirtCoords = new()
         {
-            {Face.Front, new Vector2(2f, 0f)},
-            {Face.Back, new Vector2(2f, 0f)},
-            {Face.Left, new Vector2(2f, 0f)},
-            {Face.Right, new Vector2(2f, 0f)},
-            {Face.Top, new Vector2(2f, 0f)},
-            {Face.Bottom, new Vector2(2f, 0f)}
+            {BlockFace.Front, new Vector2(2f, 0f)},
+            {BlockFace.Back, new Vector2(2f, 0f)},
+            {BlockFace.Left, new Vector2(2f, 0f)},
+            {BlockFace.Right, new Vector2(2f, 0f)},
+            {BlockFace.Top, new Vector2(2f, 0f)},
+            {BlockFace.Bottom, new Vector2(2f, 0f)}
         };
         Register(new BlockDefinition(BlockType.Dirt, true, dirtCoords));
 
-        Dictionary<Face, Vector2> grassCoords = new()
+        Dictionary<BlockFace, Vector2> grassCoords = new()
         {
-            {Face.Front, new Vector2(3f, 0f)},
-            {Face.Back, new Vector2(3f, 0f)},
-            {Face.Left, new Vector2(3f, 0f)},
-            {Face.Right, new Vector2(3f, 0f)},
-            {Face.Top, new Vector2(7f, 2f)}, 
-            {Face.Bottom, new Vector2(2f, 0f)}
+            {BlockFace.Front, new Vector2(3f, 0f)},
+            {BlockFace.Back, new Vector2(3f, 0f)},
+            {BlockFace.Left, new Vector2(3f, 0f)},
+            {BlockFace.Right, new Vector2(3f, 0f)},
+            {BlockFace.Top, new Vector2(7f, 2f)}, 
+            {BlockFace.Bottom, new Vector2(2f, 0f)}
         };
         Register(new BlockDefinition(BlockType.Grass, true, grassCoords));
     }

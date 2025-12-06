@@ -7,7 +7,8 @@ namespace Game.Ecs.Systems;
 
 public class PhysicsSystem(WorldManager world)
 {
-    private const float Epsilon = 0.001f;
+    private const float Epsilon = 0.005f;
+    private const float Drag = 0.1f;
 
     public void Update(Entity entity, float deltaTime)
     {
@@ -16,38 +17,72 @@ public class PhysicsSystem(WorldManager world)
         var phys = entity.GetComponent<PhysicsComponent>();
 
         vel.Velocity.Y -= phys.Gravity * deltaTime;
+        vel.Velocity.X *= 1.0f - Drag * deltaTime;
+        vel.Velocity.Z *= 1.0f - Drag * deltaTime;
 
-        MoveAndCollide(pos, vel, phys, new Vector3(vel.Velocity.X * deltaTime, 0, 0));
-        MoveAndCollide(pos, vel, phys, new Vector3(0, 0, vel.Velocity.Z * deltaTime));
-        MoveAndCollide(pos, vel, phys, new Vector3(0, vel.Velocity.Y * deltaTime, 0));
+        ResolveAxis(pos, vel, phys, new Vector3(vel.Velocity.X * deltaTime, 0, 0), Axis.X);
+        ResolveAxis(pos, vel, phys, new Vector3(0, 0, vel.Velocity.Z * deltaTime), Axis.Z);
+        ResolveAxis(pos, vel, phys, new Vector3(0, vel.Velocity.Y * deltaTime, 0), Axis.Y);
     }
 
-    private void MoveAndCollide(PositionComponent pos, VelocityComponent vel, PhysicsComponent phys, Vector3 moveAmount)
-    {
-        var nextPos = pos.Position + moveAmount;
+    private enum Axis { X, Y, Z}
 
-        var min = nextPos - new Vector3(phys.Size.X / 2, 0, phys.Size.Z / 2);
-        var max = nextPos + new Vector3(phys.Size.X / 2, phys.Size.Y, phys.Size.Z / 2);
+    private void ResolveAxis(PositionComponent pos, VelocityComponent vel, PhysicsComponent phys, Vector3 moveAmount, Axis axis)
+    {
+        if (moveAmount == Vector3.Zero) return;
+
+        var targetPos = pos.Position + moveAmount;
+
+        var min = targetPos - new Vector3(phys.Size.X / 2, 0, phys.Size.Z / 2);
+        var max = targetPos + new Vector3(phys.Size.X / 2, phys.Size.Y, phys.Size.Z / 2);
 
         if (CheckCollision(min, max))
         {
-            if (moveAmount.Y != 0)
+            switch (axis)
             {
-                vel.Velocity.Y = 0;
-                if (moveAmount.Y < 0) phys.IsGrounded = true;
-            }
-            else
-            {
-                if (moveAmount.X != 0) vel.Velocity.X = 0;
-                if (moveAmount.Z != 0) vel.Velocity.Z = 0;
+                case Axis.Y:
+                {
+                    if (moveAmount.Y < 0)
+                    {
+                        pos.Position.Y = Math.Floor(pos.Position.Y + moveAmount.Y) + 1.0f + Epsilon;
+                        pos.Position.Y = Math.Round(pos.Position.Y) + (moveAmount.Y < 0 ? Epsilon : -phys.Size.Y - Epsilon);
+                        phys.IsGrounded = true;
+                    }
+                    else
+                    {
+                        pos.Position.Y = Math.Floor(pos.Position.Y + phys.Size.Y) - phys.Size.Y - Epsilon;
+                    }
+
+                    vel.Velocity.Y = 0;
+                    break;
+                }
+                case Axis.X:
+                {
+                    if (moveAmount.X > 0)
+                        pos.Position.X = Math.Floor(pos.Position.X + phys.Size.X / 2 + moveAmount.X) - phys.Size.X / 2 - Epsilon;
+                    else
+                        pos.Position.X = Math.Floor(pos.Position.X - phys.Size.X / 2 + moveAmount.X) + 1.0f + phys.Size.X / 2 + Epsilon;
+
+                    vel.Velocity.X = 0;
+                    break;
+                }
+                case Axis.Z:
+                {
+                    if (moveAmount.Z > 0)
+                        pos.Position.Z = Math.Floor(pos.Position.Z + phys.Size.Z / 2 + moveAmount.Z) - phys.Size.Z / 2 - Epsilon;
+                    else
+                        pos.Position.Z = Math.Floor(pos.Position.Z - phys.Size.Z / 2 + moveAmount.Z) + 1.0f + phys.Size.Z / 2 + Epsilon;
+
+                    vel.Velocity.Z = 0;
+                    break;
+                }
             }
         }
         else
         {
-            pos.Position = nextPos;
-            if (moveAmount.Y != 0) phys.IsGrounded = false;
+            pos.Position = targetPos;
+            if (axis == Axis.Y) phys.IsGrounded = false;
         }
-
     }
 
     private bool CheckCollision(GlobalPos min, GlobalPos max)
