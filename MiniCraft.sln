@@ -3,11 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Game", "src\Game\Game.csproj", "{F262BB99-C39A-4764-AFAB-91B7067A94DF}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Libs", "src\Libs\Libs.csproj", "{25F69B54-6E11-4B37-817E-621208266093}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Minicraft", "Minicraft\Minicraft.csproj", "{FA2B776B-17FD-480D-B7D6-06AC81FB4292}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -19,36 +15,20 @@ Global
 		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{F262BB99-C39A-4764-AFAB-91B7067A94DF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{F262BB99-C39A-4764-AFAB-91B7067A94DF}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{F262BB99-C39A-4764-AFAB-91B7067A94DF}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{F262BB99-C39A-4764-AFAB-91B7067A94DF}.Debug|x64.Build.0 = Debug|Any CPU
-		{F262BB99-C39A-4764-AFAB-91B7067A94DF}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{F262BB99-C39A-4764-AFAB-91B7067A94DF}.Debug|x86.Build.0 = Debug|Any CPU
-		{F262BB99-C39A-4764-AFAB-91B7067A94DF}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{F262BB99-C39A-4764-AFAB-91B7067A94DF}.Release|Any CPU.Build.0 = Release|Any CPU
-		{F262BB99-C39A-4764-AFAB-91B7067A94DF}.Release|x64.ActiveCfg = Release|Any CPU
-		{F262BB99-C39A-4764-AFAB-91B7067A94DF}.Release|x64.Build.0 = Release|Any CPU
-		{F262BB99-C39A-4764-AFAB-91B7067A94DF}.Release|x86.ActiveCfg = Release|Any CPU
-		{F262BB99-C39A-4764-AFAB-91B7067A94DF}.Release|x86.Build.0 = Release|Any CPU
-		{25F69B54-6E11-4B37-817E-621208266093}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{25F69B54-6E11-4B37-817E-621208266093}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{25F69B54-6E11-4B37-817E-621208266093}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{25F69B54-6E11-4B37-817E-621208266093}.Debug|x64.Build.0 = Debug|Any CPU
-		{25F69B54-6E11-4B37-817E-621208266093}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{25F69B54-6E11-4B37-817E-621208266093}.Debug|x86.Build.0 = Debug|Any CPU
-		{25F69B54-6E11-4B37-817E-621208266093}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{25F69B54-6E11-4B37-817E-621208266093}.Release|Any CPU.Build.0 = Release|Any CPU
-		{25F69B54-6E11-4B37-817E-621208266093}.Release|x64.ActiveCfg = Release|Any CPU
-		{25F69B54-6E11-4B37-817E-621208266093}.Release|x64.Build.0 = Release|Any CPU
-		{25F69B54-6E11-4B37-817E-621208266093}.Release|x86.ActiveCfg = Release|Any CPU
-		{25F69B54-6E11-4B37-817E-621208266093}.Release|x86.Build.0 = Release|Any CPU
+		{FA2B776B-17FD-480D-B7D6-06AC81FB4292}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FA2B776B-17FD-480D-B7D6-06AC81FB4292}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FA2B776B-17FD-480D-B7D6-06AC81FB4292}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{FA2B776B-17FD-480D-B7D6-06AC81FB4292}.Debug|x64.Build.0 = Debug|Any CPU
+		{FA2B776B-17FD-480D-B7D6-06AC81FB4292}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{FA2B776B-17FD-480D-B7D6-06AC81FB4292}.Debug|x86.Build.0 = Debug|Any CPU
+		{FA2B776B-17FD-480D-B7D6-06AC81FB4292}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FA2B776B-17FD-480D-B7D6-06AC81FB4292}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FA2B776B-17FD-480D-B7D6-06AC81FB4292}.Release|x64.ActiveCfg = Release|Any CPU
+		{FA2B776B-17FD-480D-B7D6-06AC81FB4292}.Release|x64.Build.0 = Release|Any CPU
+		{FA2B776B-17FD-480D-B7D6-06AC81FB4292}.Release|x86.ActiveCfg = Release|Any CPU
+		{FA2B776B-17FD-480D-B7D6-06AC81FB4292}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
-	EndGlobalSection
-	GlobalSection(NestedProjects) = preSolution
-		{F262BB99-C39A-4764-AFAB-91B7067A94DF} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
-		{25F69B54-6E11-4B37-817E-621208266093} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal
