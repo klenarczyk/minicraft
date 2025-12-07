@@ -17,7 +17,7 @@ public class PhysicsSystem(WorldManager world)
         var vel = entity.GetComponent<VelocityComponent>();
         var phys = entity.GetComponent<PhysicsComponent>();
 
-        vel.Velocity.Y -= phys.Gravity * deltaTime;
+        if (!phys.IsFlying) vel.Velocity.Y -= phys.Gravity * deltaTime;
         vel.Velocity.X *= 1.0f - Drag * deltaTime;
         vel.Velocity.Z *= 1.0f - Drag * deltaTime;
 
