@@ -11,6 +11,7 @@ public static class ItemRegistry
 
     static ItemRegistry()
     {
+        Register(new Item(ItemType.Air, "Air", 0, Vector2.Zero));
         Register(new BlockItem(ItemType.Dirt, "Dirt", new Vector2(2f, 0f), BlockType.Dirt));
         Register(new BlockItem(ItemType.Grass, "Grass Block", new Vector2(3f, 0f), BlockType.Grass));
     }

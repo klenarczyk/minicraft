@@ -2,6 +2,7 @@
 
 public enum ItemType : ushort
 {
+    Air,
     Dirt,
     Grass
 }
