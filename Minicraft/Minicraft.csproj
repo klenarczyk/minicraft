@@ -13,14 +13,12 @@
   </ItemGroup>
 
 	<ItemGroup>
-	  <Content Include="Assets\Shaders\Default.frag" />
-	  <Content Include="Assets\Shaders\Default.vert" />
-	  <Content Include="Assets\Shaders\Gui.frag" />
-	  <Content Include="Assets\Shaders\Gui.vert" />
-	  <Content Include="Assets\Shaders\Outline.frag" />
-	  <Content Include="Assets\Shaders\Outline.vert" />
-	  <Content Include="Assets\Textures\block_atlas.png" />
-	  <Content Include="Assets\Textures\gui_atlas.png" />
+		<None Update="Assets\Textures\**">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Assets\Shaders\**">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
 	</ItemGroup>
 
 	<ItemGroup>
