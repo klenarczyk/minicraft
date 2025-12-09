@@ -1,5 +1,4 @@
-﻿using Minicraft.Engine.Graphics;
-using Minicraft.Engine.Graphics.Core;
+﻿using Minicraft.Engine.Graphics.Core;
 using Minicraft.Game.Ecs.Components;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.GraphicsLibraryFramework;
@@ -17,9 +16,11 @@ public class InputSystem
     {
         var vel = player.GetComponent<VelocityComponent>();
         var phys = player.GetComponent<PhysicsComponent>();
+        var inv = player.GetComponent<InventoryComponent>();
 
         _currentRunTime += deltaTime;
 
+        // Movement
         var isSpaceDown = keyboard.IsKeyDown(Keys.Space);
 
         if (isSpaceDown && !_wasSpaceDown)
@@ -60,6 +61,17 @@ public class InputSystem
         }
 
         _wasSpaceDown = isSpaceDown;
+
+        // Hotbar
+        if (keyboard.IsKeyDown(Keys.D1)) inv.SelectedSlotIndex = 0;
+        if (keyboard.IsKeyDown(Keys.D2)) inv.SelectedSlotIndex = 1;
+        if (keyboard.IsKeyDown(Keys.D3)) inv.SelectedSlotIndex = 2;
+        if (keyboard.IsKeyDown(Keys.D4)) inv.SelectedSlotIndex = 3;
+        if (keyboard.IsKeyDown(Keys.D5)) inv.SelectedSlotIndex = 4;
+        if (keyboard.IsKeyDown(Keys.D6)) inv.SelectedSlotIndex = 5;
+        if (keyboard.IsKeyDown(Keys.D7)) inv.SelectedSlotIndex = 6;
+        if (keyboard.IsKeyDown(Keys.D8)) inv.SelectedSlotIndex = 7;
+        if (keyboard.IsKeyDown(Keys.D9)) inv.SelectedSlotIndex = 8;
     }
 
     private void HandleFlyingMovement(VelocityComponent vel, Vector3 wishDir, KeyboardState keyboard, float deltaTime)

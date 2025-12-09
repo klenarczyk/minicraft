@@ -10,12 +10,10 @@ public class InventoryComponent
 
     public ItemStack[] Slots { get; }
 
-    private int _selectedSlotIndex;
-
     public int SelectedSlotIndex
     {
-        get => _selectedSlotIndex;
-        set => _selectedSlotIndex = Math.Clamp(value, 0, HotbarSize - 1);
+        get;
+        set => field = Math.Clamp(value, 0, HotbarSize - 1);
     }
 
     public InventoryComponent()

@@ -1,5 +1,4 @@
 ﻿using System.Collections.Concurrent;
-using Minicraft.Engine.Graphics;
 using Minicraft.Engine.Graphics.Core;
 using Minicraft.Engine.Graphics.Resources;
 using Minicraft.Game.Data;
@@ -19,13 +18,13 @@ public class WorldManager : IDisposable
     private const int LoadDistance = RenderDistance + 1;
 
     private readonly ChunkPos[] _chunkUpdatePattern;
-    private ChunkPos _lastChunkCoord;
+    private ChunkPos _lastChunkCoords;
     private readonly Texture _textureAtlas;
 
     public WorldManager(GlobalPos startingPos)
     {
-        _textureAtlas = new Texture("block_atlas.png");
-        _lastChunkCoord = new ChunkPos(int.MaxValue, int.MaxValue);
+        _textureAtlas = new Texture("terrain.png");
+        _lastChunkCoords = new ChunkPos(int.MaxValue, int.MaxValue);
 
         _chunkUpdatePattern = GenerateChunkUpdatePattern(LoadDistance);
         UpdateWorld(startingPos);
@@ -52,9 +51,9 @@ public class WorldManager : IDisposable
     private void UpdateWorld(GlobalPos cameraPosition)
     {
         var currentChunkCoords = WorldToChunkCoords(cameraPosition);
-        if (currentChunkCoords == _lastChunkCoord) return;
+        if (currentChunkCoords == _lastChunkCoords) return;
 
-        _lastChunkCoord = currentChunkCoords;
+        _lastChunkCoords = currentChunkCoords;
 
         // Remove chunks outside data distance
         List<ChunkPos> toRemove = [];
@@ -67,30 +66,30 @@ public class WorldManager : IDisposable
             }
         }
 
-        foreach (var coord in toRemove)
+        foreach (var coords in toRemove)
         {
-            if (_activeChunks.TryRemove(coord, out var chunk))
+            if (_activeChunks.TryRemove(coords, out var chunk))
                 chunk.Delete();
         }
 
         // Spawn generators
         foreach (var offset in _chunkUpdatePattern)
         {
-            var chunkCoord = currentChunkCoords + offset;
+            var chunkCoords = currentChunkCoords + offset;
 
-            if (_activeChunks.ContainsKey(chunkCoord)) continue;
-            if (_chunksProcessingData.ContainsKey(chunkCoord)) continue;
+            if (_activeChunks.ContainsKey(chunkCoords)) continue;
+            if (_chunksProcessingData.ContainsKey(chunkCoords)) continue;
 
-            SpawnChunkGeneration(chunkCoord);
+            SpawnChunkGeneration(chunkCoords);
         }
     }
 
-    private void SpawnChunkGeneration(ChunkPos chunkCoord)
+    private void SpawnChunkGeneration(ChunkPos chunkCoords)
     {
-        var chunkPosition = new ChunkPos(chunkCoord.X * Chunk.Size, chunkCoord.Z * Chunk.Size);
+        var chunkPosition = new ChunkPos(chunkCoords.X * Chunk.Size, chunkCoords.Z * Chunk.Size);
         var newChunk = new Chunk(chunkPosition);
 
-        if (!_chunksProcessingData.TryAdd(chunkCoord, true)) return;
+        if (!_chunksProcessingData.TryAdd(chunkCoords, true)) return;
 
         Task.Run(() =>
         {
@@ -98,41 +97,41 @@ public class WorldManager : IDisposable
             {
                 newChunk.GenerateData();
 
-                _activeChunks.TryAdd(chunkCoord, newChunk);
+                _activeChunks.TryAdd(chunkCoords, newChunk);
 
-                CheckAndRequestMesh(chunkCoord);
-                CheckAndRequestMesh(chunkCoord + new ChunkPos(-1, 0));
-                CheckAndRequestMesh(chunkCoord + new ChunkPos(1, 0));
-                CheckAndRequestMesh(chunkCoord + new ChunkPos(0, -1));
-                CheckAndRequestMesh(chunkCoord + new ChunkPos(0, 1));
+                CheckAndRequestMesh(chunkCoords);
+                CheckAndRequestMesh(chunkCoords + new ChunkPos(-1, 0));
+                CheckAndRequestMesh(chunkCoords + new ChunkPos(1, 0));
+                CheckAndRequestMesh(chunkCoords + new ChunkPos(0, -1));
+                CheckAndRequestMesh(chunkCoords + new ChunkPos(0, 1));
             }
             catch (Exception e)
             {
-                Console.WriteLine($"Error generating chunk at {chunkCoord}: {e.Message}");
-                _activeChunks.TryRemove(chunkCoord, out _);
+                Console.WriteLine($"Error generating chunk at {chunkCoords}: {e.Message}");
+                _activeChunks.TryRemove(chunkCoords, out _);
             }
             finally
             {
-                _chunksProcessingData.TryRemove(chunkCoord, out _);
+                _chunksProcessingData.TryRemove(chunkCoords, out _);
             }
         });
     }
 
-    private void CheckAndRequestMesh(ChunkPos chunkCoord)
+    private void CheckAndRequestMesh(ChunkPos chunkCoords)
     {
-        if (!_activeChunks.TryGetValue(chunkCoord, out var chunk)) return;
+        if (!_activeChunks.TryGetValue(chunkCoords, out var chunk)) return;
         if (chunk.MeshGenerationRequested) return;
         if (!chunk.IsDataGenerated) return;
 
-        var distX = (long)chunkCoord.X - _lastChunkCoord.X;
-        var distY = (long)chunkCoord.Z - _lastChunkCoord.Z;
+        var distX = (long)chunkCoords.X - _lastChunkCoords.X;
+        var distY = (long)chunkCoords.Z - _lastChunkCoords.Z;
 
         if (Math.Abs(distX) > RenderDistance || Math.Abs(distY) > RenderDistance) return;
 
-        if (!_activeChunks.TryGetValue(chunkCoord + new ChunkPos(-1, 0), out var west) || !west.IsDataGenerated) return;
-        if (!_activeChunks.TryGetValue(chunkCoord + new ChunkPos(1, 0), out var east) || !east.IsDataGenerated) return;
-        if (!_activeChunks.TryGetValue(chunkCoord + new ChunkPos(0, 1), out var north) || !north.IsDataGenerated) return;
-        if (!_activeChunks.TryGetValue(chunkCoord + new ChunkPos(0, -1), out var south) || !south.IsDataGenerated) return;
+        if (!_activeChunks.TryGetValue(chunkCoords + new ChunkPos(-1, 0), out var west) || !west.IsDataGenerated) return;
+        if (!_activeChunks.TryGetValue(chunkCoords + new ChunkPos(1, 0), out var east) || !east.IsDataGenerated) return;
+        if (!_activeChunks.TryGetValue(chunkCoords + new ChunkPos(0, 1), out var north) || !north.IsDataGenerated) return;
+        if (!_activeChunks.TryGetValue(chunkCoords + new ChunkPos(0, -1), out var south) || !south.IsDataGenerated) return;
 
         lock (chunk.MeshGenLock)
         {
@@ -149,7 +148,7 @@ public class WorldManager : IDisposable
             }
             catch (Exception e)
             {
-                Console.WriteLine($"Mesh generation failed at {chunkCoord}: {e.Message}\n{e.StackTrace}");
+                Console.WriteLine($"Mesh generation failed at {chunkCoords}: {e.Message}\n{e.StackTrace}");
 
                 lock (chunk.MeshGenLock)
                 {

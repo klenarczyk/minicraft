@@ -1,12 +1,13 @@
-﻿using Minicraft.Engine.Graphics;
-using Minicraft.Engine.Graphics.Core;
+﻿using Minicraft.Engine.Graphics.Core;
 using Minicraft.Engine.Graphics.Resources;
 using Minicraft.Engine.Gui;
 using Minicraft.Game.Data;
 using Minicraft.Game.Ecs;
 using Minicraft.Game.Ecs.Components;
 using Minicraft.Game.Ecs.Systems;
+using Minicraft.Game.Items;
 using Minicraft.Game.Rendering;
+using Minicraft.Game.Ui;
 using Minicraft.Game.World;
 using Minicraft.Game.World.Blocks;
 using Minicraft.Game.World.Physics;
@@ -27,12 +28,15 @@ public class GameWindow : OpenTK.Windowing.Desktop.GameWindow
     private Entity? _player;
     private InputSystem? _inputSystem;
     private PhysicsSystem? _physicsSystem;
+    private InventorySystem? _inventorySystem;
 
     private Raycaster? _raycaster;
     private BlockOutline? _outline;
     private RaycastResult _currentHit = new() { Hit = false };
 
     private GuiRenderer? _gui;
+    private HudManager? _hudManager;
+    private InventoryComponent? _playerInventory;
 
     private bool _freezeFrustum;
     private bool _wireframeEnabled;
@@ -68,7 +72,6 @@ public class GameWindow : OpenTK.Windowing.Desktop.GameWindow
 
         CursorState = CursorState.Grabbed;
 
-        // Initialize ECS
         _player = new Entity();
         _player.AddComponent(new PositionComponent { Position = startingPos });
         _player.AddComponent(new VelocityComponent());
@@ -78,6 +81,15 @@ public class GameWindow : OpenTK.Windowing.Desktop.GameWindow
         _physicsSystem = new PhysicsSystem(_world);
 
         _gui = new GuiRenderer(_screenWidth, _screenHeight);
+        _hudManager = new HudManager();
+
+        _playerInventory = new InventoryComponent();
+        _inventorySystem = new InventorySystem();
+        _inventorySystem.AddToInventory(_playerInventory, new ItemStack(ItemType.Grass, 5));
+        _inventorySystem.AddToInventory(_playerInventory, new ItemStack(ItemType.Dirt, 16));
+        _playerInventory.SelectedSlotIndex = 0;
+
+        _player.AddComponent(_playerInventory);
     }
 
     protected override void OnUnload()
@@ -132,28 +144,7 @@ public class GameWindow : OpenTK.Windowing.Desktop.GameWindow
         if (_currentHit.Hit)
             _outline?.Render(targetPos, _camera.GetViewMatrix(), _camera.GetProjectionMatrix());
 
-        _gui?.RenderStart();
-
-        var centerX = Size.X / 2.0f;
-        var centerY = Size.Y / 2.0f;
-        const float crosshairSize = 32.0f;
-
-        const float atlasSize = 256.0f;
-        const float iconSize = 16.0f;
-
-        const float scale = iconSize / atlasSize;
-        const float halfTexel = 0.5f / atlasSize;
-        var crosshairUVs = new Vector4(0, 0, scale, scale - halfTexel);
-
-        _gui?.DrawSprite(
-            centerX - (crosshairSize / 2),
-            centerY - (crosshairSize / 2),
-            crosshairSize,
-            crosshairSize,
-            crosshairUVs
-        );
-
-        _gui?.RenderEnd();
+        _hudManager.Draw(_gui, _player.GetComponent<InventoryComponent>(), Size.X, Size.Y);
 
         Context.SwapBuffers();
     }
@@ -199,8 +190,24 @@ public class GameWindow : OpenTK.Windowing.Desktop.GameWindow
             var playerGridPos = new BlockPos((int)Math.Floor(playerFootPos.X), (int)Math.Floor(playerFootPos.Y), (int)Math.Floor(playerFootPos.Z));
             var placePos = _currentHit.PlacePosition;
 
-            if (placePos != playerGridPos && placePos != playerGridPos + new BlockPos(0, 1, 0))
-                _world.SetBlockAt(placePos, BlockType.Dirt);
+            var inventory = _player.GetComponent<InventoryComponent>();
+            var item = inventory.Slots[inventory.SelectedSlotIndex].ItemId;
+
+            var block = item switch
+            {
+                ItemType.Dirt => BlockType.Dirt,
+                ItemType.Grass => BlockType.Grass,
+                _ => BlockType.Air
+            };
+
+            if (placePos != playerGridPos && placePos != playerGridPos + new BlockPos(0, 1, 0) && block != BlockType.Air)
+                _world.SetBlockAt(placePos, block);
+        }
+
+        if (MouseState.ScrollDelta.Y != 0)
+        {
+            var direction = MouseState.ScrollDelta.Y > 0 ? -1 : 1;
+            _inventorySystem?.ScrollHotbar(_player.GetComponent<InventoryComponent>(), direction);
         }
 
         _camera.InputController(MouseState, args);

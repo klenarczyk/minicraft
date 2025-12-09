@@ -50,7 +50,7 @@ public class ShaderProgram : IDisposable
     private static string LoadShaderSource(string filePath)
     {
         var baseDir = AppContext.BaseDirectory;
-        var fullPath = Path.Combine(baseDir, "Shaders", filePath);
+        var fullPath = Path.Combine(baseDir, "Assets/Shaders", filePath);
 
         var shaderSource = "";
 

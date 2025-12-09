@@ -8,7 +8,8 @@ public record Item
     public string Name { get; set; }
     public int MaxStackSize { get; set; }
 
-    public Vector2[] IconUvs { get; }
+    // X, Y, Width, Height
+    public Vector4 UvRect { get; }
 
     public Item(ItemType id, string name, int maxStackSize, Vector2 iconCoords)
     {
@@ -16,13 +17,11 @@ public record Item
         Name = name;
         MaxStackSize = maxStackSize;
 
-        // Top-Right, Top-Left, Bottom-Left, Bottom-Right
-        IconUvs =
-        [
-            new Vector2((iconCoords.X + 1) / 16f, (iconCoords.Y + 1) / 16f),
-            new Vector2(iconCoords.X / 16f, (iconCoords.Y + 1) / 16f),
-            new Vector2(iconCoords.X / 16f, iconCoords.Y / 16f),
-            new Vector2((iconCoords.X + 1) / 16f, iconCoords.Y / 16f)
-        ];
+        UvRect = new Vector4(
+            iconCoords.X / 16f,
+            iconCoords.Y / 16f,
+            1f / 16f,
+            1f / 16f
+        );
     }
 }

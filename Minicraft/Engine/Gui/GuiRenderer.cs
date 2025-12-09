@@ -11,7 +11,6 @@ public class GuiRenderer : IDisposable
     private readonly Vao _vao;
     private readonly Vbo _vbo;
     private readonly ShaderProgram _shader;
-    private readonly Texture _texture;
 
     private int _width;
     private int _height;
@@ -36,8 +35,6 @@ public class GuiRenderer : IDisposable
         ];
 
         _shader = new ShaderProgram("Gui.vert", "Gui.frag");
-
-        _texture = new Texture("gui_atlas.png");
 
         _vao = new Vao();
         _vao.Bind();
@@ -73,22 +70,22 @@ public class GuiRenderer : IDisposable
 
         _shader.Bind();
 
-        GL.ActiveTexture(TextureUnit.Texture0);
-        _texture.Bind();
-
         var texLoc = GL.GetUniformLocation(_shader.Id, "guiTexture");
         GL.Uniform1(texLoc, 0);
 
-        var projection = Matrix4.CreateOrthographicOffCenter(0, _width, 0, _height, -100f, 100f);
+        var projection = Matrix4.CreateOrthographicOffCenter(0, _width, 0f, _height, -100f, 100f);
         var projLoc = GL.GetUniformLocation(_shader.Id, "projection");
         GL.UniformMatrix4(projLoc, false, ref projection);
 
         _vao.Bind();
     }
 
-    public void DrawSprite(float x, float y, float width, float height, Vector4 uvRect)
+    public void DrawSprite(Texture texture, float x, float y, float width, float height, Vector4 uvRect)
     {
         if (!IsVisible) return;
+
+        GL.ActiveTexture(TextureUnit.Texture0);
+        texture.Bind();
 
         var model = Matrix4.CreateScale(width, height, 1.0f) * Matrix4.CreateTranslation(x, y, 0.0f);
 
@@ -98,8 +95,11 @@ public class GuiRenderer : IDisposable
         var colorLoc = GL.GetUniformLocation(_shader.Id, "color");
         GL.Uniform3(colorLoc, new Vector3(1, 1, 1));
 
+        var glY = 1.0f - uvRect.Y - uvRect.W;
+        var correctedUv = new Vector4(uvRect.X, glY, uvRect.Z, uvRect.W);
+
         var uvLoc = GL.GetUniformLocation(_shader.Id, "uvTransform");
-        GL.Uniform4(uvLoc, uvRect);
+        GL.Uniform4(uvLoc, correctedUv);
 
         GL.DrawArrays(PrimitiveType.Triangles, 0, 6);
     }
@@ -118,6 +118,5 @@ public class GuiRenderer : IDisposable
         _vao?.Dispose();
         _vbo?.Dispose();
         _shader?.Dispose();
-        _texture?.Dispose();
     }
 }
