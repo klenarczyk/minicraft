@@ -13,7 +13,7 @@ namespace Minicraft.Game.World.Chunks;
 public class Chunk(ChunkPos position)
 {
     public readonly ChunkPos Position = position;
-    private readonly BlockType[] _blocks = new BlockType[Size * Size * Height];
+    private readonly ushort[] _blocks = new ushort[Size * Size * Height];
 
     // Data calculated by worker threads
     private readonly List<Vector3> _vertices = [];
@@ -26,9 +26,7 @@ public class Chunk(ChunkPos position)
 
     // OpenGL objects (Main thread only)
     private Vao? _vao;
-    private Vbo? _vboVerts;
-    private Vbo? _vboUvs;
-    private Vbo? _vboAo;
+    private Vbo? _vboVerts, _vboUvs, _vboAo;
     private Ebo? _ebo;
 
     public bool IsDataGenerated { get; private set; }
@@ -116,21 +114,31 @@ public class Chunk(ChunkPos position)
 
     private void GenerateBlocks(int[,] heightMap)
     {
-        for (var x = 0; x < Size; x++)
-        for (var z = 0; z < Size; z++)
+        try
         {
-            var columnHeight = heightMap[x, z];
-            for (var y = 0; y < Height; y++)
+            var dirtId = BlockRegistry.GetId("dirt_block");
+            var grassId = BlockRegistry.GetId("grass_block");
+
+            for (var x = 0; x < Size; x++)
+            for (var z = 0; z < Size; z++)
             {
-                var blockType = BlockType.Air;
+                var columnHeight = heightMap[x, z];
+                for (var y = 0; y < Height; y++)
+                {
+                    ushort blockId = 0;
 
-                if (y < columnHeight - 1)
-                    blockType = BlockType.Dirt;
-                else if (y == columnHeight - 1) 
-                    blockType = BlockType.Grass;
+                    if (y < columnHeight - 1)
+                        blockId = dirtId;
+                    else if (y == columnHeight - 1)
+                        blockId = grassId;
 
-                SetBlock(x, y, z, blockType);
+                    SetBlock(x, y, z, blockId);
+                }
             }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred while generating blocks: {ex.Message}");
         }
     }
 
@@ -140,7 +148,7 @@ public class Chunk(ChunkPos position)
         for (var y = 0; y < Height; y++)
         for (var z = 0; z < Size; z++)
         {
-            if (GetBlock(x, y, z) == BlockType.Air) continue;
+            if (GetBlock(x, y, z) == 0) continue;
 
             if (ShouldRenderFace(x, y, z + 1, north)) AddFaceData(x, y, z, BlockFace.Front, west, east, north, south);
             if (ShouldRenderFace(x, y, z - 1, south)) AddFaceData(x, y, z, BlockFace.Back, west, east, north, south);
@@ -153,32 +161,44 @@ public class Chunk(ChunkPos position)
 
     private bool ShouldRenderFace(int neighborX, int neighborY, int neighborZ, Chunk? neighborChunk)
     {
-        if (neighborY is < 0 or >= Height)
-            return true;
+        if (neighborY is < 0 or >= Height) return true;
+
+        ushort neighborId;
 
         if (neighborX is >= 0 and < Size && neighborZ is >= 0 and < Size)
-            return !BlockRegistry.Get(GetBlock(neighborX, neighborY, neighborZ)).IsSolid;
-
-        if (neighborChunk == null)
+        {
+            neighborId = GetBlock(neighborX, neighborY, neighborZ);
+        }
+        else if (neighborChunk != null)
+        {
+            var localX = (neighborX + Size) % Size;
+            var localZ = (neighborZ + Size) % Size;
+            neighborId = neighborChunk.GetBlock(localX, neighborY, localZ);
+        }
+        else
+        {
             return true;
+        }
 
-        var localX = (neighborX + Size) % Size;
-        var localZ = (neighborZ + Size) % Size;
-
-        return !BlockRegistry.Get(neighborChunk.GetBlock(localX, neighborY, localZ)).IsSolid;
+        return BlockRegistry.Get(neighborId).Behavior.IsTransparent;
     }
 
     private void AddFaceData(int x, int y, int z, BlockFace blockFace, Chunk west, Chunk east, Chunk north, Chunk south)
     {
-        var blockDef = BlockRegistry.Get(GetBlock(x, y, z));
-        var rawVerts = BlockGeometry.RawVertexData[blockFace];
+        var blockId = GetBlock(x, y, z);
+        var blockDef = BlockRegistry.Get(blockId);
 
+        // Geometry
+        var rawVerts = BlockGeometry.RawVertexData[blockFace];
         foreach (var vert in rawVerts)
             _vertices.Add(vert + new Vector3(Position.X + x, y, Position.Z + z));
 
-        var uvs = blockDef.GetUvs(blockFace);
-        _uvs.AddRange(uvs);
+        // UVs
+        _uvs.AddRange(blockDef.TextureUvs.TryGetValue(blockFace, out var faceUvs)
+            ? faceUvs
+            : [Vector2.Zero, Vector2.Zero, Vector2.Zero, Vector2.Zero]);
 
+        // Ambient Occlusion
         var faceAo = new float[4];
         for (var i = 0; i < 4; i++)
         {
@@ -186,6 +206,7 @@ public class Chunk(ChunkPos position)
             _ao.Add(faceAo[i]);
         }
 
+        // Indices
         AddIndices(faceAo);
     }
 
@@ -198,7 +219,6 @@ public class Chunk(ChunkPos position)
             _indices.Add((uint)baseIndex);
             _indices.Add((uint)(baseIndex + 1));
             _indices.Add((uint)(baseIndex + 2));
-
             _indices.Add((uint)(baseIndex + 2));
             _indices.Add((uint)(baseIndex + 3));
             _indices.Add((uint)baseIndex);
@@ -208,7 +228,6 @@ public class Chunk(ChunkPos position)
             _indices.Add((uint)(baseIndex + 1));
             _indices.Add((uint)(baseIndex + 2));
             _indices.Add((uint)(baseIndex + 3));
-
             _indices.Add((uint)(baseIndex + 3));
             _indices.Add((uint)baseIndex);
             _indices.Add((uint)(baseIndex + 1));
@@ -219,29 +238,24 @@ public class Chunk(ChunkPos position)
     {
         if (y is < 0 or >= Height) return false;
 
+        ushort blockId;
+
         if (x is >= 0 and < Size && z is >= 0 and < Size)
-            return BlockRegistry.Get(GetBlock(x, y, z)).IsSolid;
-
-        var localX = (x % Size + Size) % Size;
-        var localZ = (z % Size + Size) % Size;
-
-        switch (x)
         {
-            case < 0 when z is >= 0 and < Size:
-                return BlockRegistry.Get(west.GetBlock(localX, y, localZ)).IsSolid;
-            case >= Size when z is >= 0 and < Size:
-                return BlockRegistry.Get(east.GetBlock(localX, y, localZ)).IsSolid;
+            blockId = GetBlock(x, y, z);
+        }
+        else
+        {
+            var localX = (x % Size + Size) % Size;
+            var localZ = (z % Size + Size) % Size;
+
+            if (x < 0) blockId = west.GetBlock(localX, y, localZ);
+            else if (x >= Size) blockId = east.GetBlock(localX, y, localZ);
+            else if (z < 0) blockId = south.GetBlock(localX, y, localZ);
+            else blockId = north.GetBlock(localX, y, localZ);
         }
 
-        switch (z)
-        {
-            case < 0 when x is >= 0 and < Size:
-                return BlockRegistry.Get(south.GetBlock(localX, y, localZ)).IsSolid;
-            case >= Size when x is >= 0 and < Size:
-                return BlockRegistry.Get(north.GetBlock(localX, y, localZ)).IsSolid;
-            default:
-                return false;
-        }
+        return BlockRegistry.Get(blockId).Behavior.IsSolid;
     }
 
     private float GetAo(int x, int y, int z, BlockFace blockFace, int vertexIndex, Chunk west, Chunk east, Chunk north, Chunk south)
@@ -331,12 +345,12 @@ public class Chunk(ChunkPos position)
         return 1.0f - occlusion * 0.25f;
     }
 
-    public BlockType GetBlock(int x, int y, int z)
+    public ushort GetBlock(int x, int y, int z)
     {
         return _blocks[GetIndex(x, y, z)];
     }
 
-    public void SetBlock(int x, int y, int z, BlockType type)
+    public void SetBlock(int x, int y, int z, ushort type)
     {
         if (y is < 0 or >= Height) return;
         _blocks[GetIndex(x, y, z)] = type;

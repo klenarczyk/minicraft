@@ -11,9 +11,12 @@ public static class ItemRegistry
 
     static ItemRegistry()
     {
+        var dirtId = BlockRegistry.GetId("dirt_block");
+        var grassId = BlockRegistry.GetId("grass_block");
+
         Register(new Item(ItemType.Air, "Air", 0, Vector2.Zero));
-        Register(new BlockItem(ItemType.Dirt, "Dirt", new Vector2(2f, 0f), BlockType.Dirt));
-        Register(new BlockItem(ItemType.Grass, "Grass Block", new Vector2(3f, 0f), BlockType.Grass));
+        Register(new BlockItem(ItemType.Dirt, "Dirt", new Vector2(2f, 0f), dirtId));
+        Register(new BlockItem(ItemType.Grass, "Grass Block", new Vector2(3f, 0f), grassId));
     }
 
     private static void Register(Item item)
@@ -26,7 +29,7 @@ public static class ItemRegistry
         return Items[(int)id];
     }
 
-    public static bool IsBlock(ItemType id, out BlockType blockId)
+    public static bool IsBlock(ItemType id, out ushort blockId)
     {
         if (Items[(int)id] is BlockItem blockItem)
         {
@@ -34,7 +37,7 @@ public static class ItemRegistry
             return true;
         }
 
-        blockId = BlockType.Air;
+        blockId = 0;
         return false;
     }
 }

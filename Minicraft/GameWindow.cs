@@ -6,6 +6,7 @@ using Minicraft.Game.Ecs;
 using Minicraft.Game.Ecs.Components;
 using Minicraft.Game.Ecs.Systems;
 using Minicraft.Game.Items;
+using Minicraft.Game.Managers;
 using Minicraft.Game.Rendering;
 using Minicraft.Game.Ui;
 using Minicraft.Game.World;
@@ -57,6 +58,9 @@ public class GameWindow : OpenTK.Windowing.Desktop.GameWindow
     protected override void OnLoad()
     {
         base.OnLoad();
+
+        Assets.Load(Path.Combine(AppContext.BaseDirectory, "Assets"));
+        BlockRegistry.Initialize();
 
         var startingPos = new GlobalPos(0.0, 50.0, 0.0);
         _world = new WorldManager(startingPos);
@@ -182,7 +186,7 @@ public class GameWindow : OpenTK.Windowing.Desktop.GameWindow
         _currentHit = _raycaster.Raycast(_camera.Position, _camera.Front, 5.0f);
 
         if (MouseState.IsButtonPressed(MouseButton.Left) && _currentHit.Hit && CursorState == CursorState.Grabbed)
-            _world.SetBlockAt(_currentHit.BlockPosition, BlockType.Air);
+            _world.SetBlockAt(_currentHit.BlockPosition, 0);
 
         if (MouseState.IsButtonPressed(MouseButton.Right) && _currentHit.Hit && CursorState == CursorState.Grabbed)
         {
@@ -191,17 +195,10 @@ public class GameWindow : OpenTK.Windowing.Desktop.GameWindow
             var placePos = _currentHit.PlacePosition;
 
             var inventory = _player.GetComponent<InventoryComponent>();
-            var item = inventory.Slots[inventory.SelectedSlotIndex].ItemId;
+            var item = ItemRegistry.Get(inventory.Slots[inventory.SelectedSlotIndex].ItemId);
 
-            var block = item switch
-            {
-                ItemType.Dirt => BlockType.Dirt,
-                ItemType.Grass => BlockType.Grass,
-                _ => BlockType.Air
-            };
-
-            if (placePos != playerGridPos && placePos != playerGridPos + new BlockPos(0, 1, 0) && block != BlockType.Air)
-                _world.SetBlockAt(placePos, block);
+            if (placePos != playerGridPos && placePos != playerGridPos + new BlockPos(0, 1, 0) && item is BlockItem block)
+                _world.SetBlockAt(placePos, block.BlockToPlace);
         }
 
         if (MouseState.ScrollDelta.Y != 0)

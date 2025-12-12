@@ -14,43 +14,13 @@ public enum BlockFace
 
 public static class BlockGeometry
 {
-    public static readonly Dictionary<BlockFace, List<Vector3>> RawVertexData = new()
+    public static readonly Dictionary<BlockFace, Vector3[]> RawVertexData = new()
     {
-        {BlockFace.Front, [
-            new Vector3(0f, 0f, 1f),
-            new Vector3(1f, 0f, 1f),
-            new Vector3(1f, 1f, 1f),
-            new Vector3(0f, 1f, 1f)
-        ]},
-        {BlockFace.Back, [
-            new Vector3(1f, 0f, 0f),
-            new Vector3(0f, 0f, 0f),
-            new Vector3(0f, 1f, 0f),
-            new Vector3(1f, 1f, 0f)
-        ]},
-        {BlockFace.Right, [
-            new Vector3(1f, 0f, 1f),
-            new Vector3(1f, 0f, 0f),
-            new Vector3(1f, 1f, 0f),
-            new Vector3(1f, 1f, 1f)
-        ]},
-        {BlockFace.Left, [
-            new Vector3(0f, 0f, 0f),
-            new Vector3(0f, 0f, 1f),
-            new Vector3(0f, 1f, 1f),
-            new Vector3(0f, 1f, 0f)
-        ]},
-        {BlockFace.Top, [
-            new Vector3(0f, 1f, 1f),
-            new Vector3(1f, 1f, 1f),
-            new Vector3(1f, 1f, 0f),
-            new Vector3(0f, 1f, 0f)
-        ]},
-        {BlockFace.Bottom, [
-            new Vector3(0f, 0f, 0f),
-            new Vector3(1f, 0f, 0f),
-            new Vector3(1f, 0f, 1f),
-            new Vector3(0f, 0f, 1f)
-        ]}
+        {BlockFace.Front,  [ new Vector3(0, 0, 1), new Vector3(1, 0, 1), new Vector3(1, 1, 1), new Vector3(0, 1, 1) ]},
+        {BlockFace.Back,   [ new Vector3(1, 0, 0), new Vector3(0, 0, 0), new Vector3(0, 1, 0), new Vector3(1, 1, 0) ]},
+        {BlockFace.Right,  [ new Vector3(1, 0, 1), new Vector3(1, 0, 0), new Vector3(1, 1, 0), new Vector3(1, 1, 1) ]},
+        {BlockFace.Left,   [ new Vector3(0, 0, 0), new Vector3(0, 0, 1), new Vector3(0, 1, 1), new Vector3(0, 1, 0) ]},
+        {BlockFace.Top,    [ new Vector3(0, 1, 1), new Vector3(1, 1, 1), new Vector3(1, 1, 0), new Vector3(0, 1, 0) ]},
+        {BlockFace.Bottom, [ new Vector3(0, 0, 0), new Vector3(1, 0, 0), new Vector3(1, 0, 1), new Vector3(0, 0, 1) ]}
     };
 }

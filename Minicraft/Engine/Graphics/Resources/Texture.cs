@@ -1,12 +1,15 @@
-﻿using Microsoft.VisualBasic;
-using OpenTK.Graphics.OpenGL4;
-using StbImageSharp;
+﻿using OpenTK.Graphics.OpenGL4;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
 
 namespace Minicraft.Engine.Graphics.Resources;
 
 public class Texture : IDisposable
 {
     public readonly int Id;
+    public int Width { get; }
+    public int Height { get; }
     private bool _disposed;
 
     public Texture(string filePath)
@@ -21,19 +24,29 @@ public class Texture : IDisposable
         GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
         GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
 
-        StbImage.stbi_set_flip_vertically_on_load(1);
-        using (var stream = File.OpenRead("./Assets/Textures/" + filePath))
+        var fullPath = Path.Combine(".", "Assets", "Textures", filePath);
+        using (var image = Image.Load<Rgba32>(fullPath))
         {
-            var texture = ImageResult.FromStream(stream, ColorComponents.RedGreenBlueAlpha);
-            GL.TexImage2D(TextureTarget.Texture2D,
+            Width = image.Width;
+            Height = image.Height;
+
+            // Flip for OpenGL
+            image.Mutate(o => o.Flip(FlipMode.Vertical));
+
+            var pixelData = new byte[image.Width * image.Height * 4]; // 4 bytes per pixel (RGBA)
+            image.CopyPixelDataTo(pixelData);
+
+            GL.TexImage2D(
+                TextureTarget.Texture2D,
                 0,
                 PixelInternalFormat.Rgba,
-                texture.Width,
-                texture.Height,
+                image.Width,
+                image.Height,
                 0,
                 PixelFormat.Rgba,
                 PixelType.UnsignedByte,
-                texture.Data);
+                pixelData
+            );
         }
 
         Unbind();

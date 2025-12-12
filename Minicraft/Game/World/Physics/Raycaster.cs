@@ -40,7 +40,7 @@ public class Raycaster(WorldManager world)
         while (distance <= reach)
         {
             var block = world.GetBlockAt(new BlockPos(x, y, z));
-            if (BlockRegistry.Get(block).IsSolid)
+            if (BlockRegistry.Get(block).Behavior.IsSolid)
             {
                 return new RaycastResult
                 {

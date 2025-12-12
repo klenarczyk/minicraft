@@ -100,7 +100,7 @@ public class PhysicsSystem(WorldManager world)
         for (var z = startZ; z <= endZ; z++)
         {
             var block = world.GetBlockAt(new BlockPos(x, y, z));
-            if (BlockRegistry.Get(block).IsSolid)
+            if (BlockRegistry.Get(block).Behavior.IsSolid)
                 return true;
         }
 

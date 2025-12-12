@@ -11,7 +11,7 @@ public class HudManager : IDisposable
     
     private readonly Texture _widgetsTexture = new("widgets.png");
     private readonly Texture _iconsTexture = new("icons.png");
-    private readonly Texture _itemTexture = new("terrain.png");
+    private readonly Texture _itemTexture = new("icons.png");
 
     public void Draw(GuiRenderer renderer, InventoryComponent inventory, int windowWidth, int windowHeight)
     {

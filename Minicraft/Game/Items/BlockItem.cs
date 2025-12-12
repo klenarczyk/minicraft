@@ -5,9 +5,9 @@ namespace Minicraft.Game.Items;
 
 public record BlockItem : Item
 {
-    public BlockType BlockToPlace { get; }
+    public ushort BlockToPlace { get; }
 
-    public BlockItem(ItemType id, string name, Vector2 iconCoords, BlockType blockToPlace)
+    public BlockItem(ItemType id, string name, Vector2 iconCoords, ushort blockToPlace)
         : base(id, name, 64, iconCoords)
     {
         BlockToPlace = blockToPlace;

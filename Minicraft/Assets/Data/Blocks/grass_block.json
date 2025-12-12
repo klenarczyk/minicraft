@@ -1,0 +1,6 @@
+{
+  "id": "grass_block",
+  "behavior": "Standard",
+  "hardness": 0.5,
+  "resistance": 1.0
+}

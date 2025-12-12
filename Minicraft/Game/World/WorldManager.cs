@@ -2,8 +2,10 @@
 using Minicraft.Engine.Graphics.Core;
 using Minicraft.Engine.Graphics.Resources;
 using Minicraft.Game.Data;
+using Minicraft.Game.Managers;
 using Minicraft.Game.World.Blocks;
 using Minicraft.Game.World.Chunks;
+using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 
 namespace Minicraft.Game.World;
@@ -19,11 +21,9 @@ public class WorldManager : IDisposable
 
     private readonly ChunkPos[] _chunkUpdatePattern;
     private ChunkPos _lastChunkCoords;
-    private readonly Texture _textureAtlas;
 
     public WorldManager(GlobalPos startingPos)
     {
-        _textureAtlas = new Texture("terrain.png");
         _lastChunkCoords = new ChunkPos(int.MaxValue, int.MaxValue);
 
         _chunkUpdatePattern = GenerateChunkUpdatePattern(LoadDistance);
@@ -36,7 +36,7 @@ public class WorldManager : IDisposable
         ProcessUploadQueue();
 
         program.Bind();
-        _textureAtlas.Bind();
+        if (Assets.BlockAtlas != null) GL.BindTexture(TextureTarget.Texture2D, Assets.BlockAtlas.AtlasTextureId);
 
         foreach (var chunk in _activeChunks.Values)
         {
@@ -55,7 +55,6 @@ public class WorldManager : IDisposable
 
         _lastChunkCoords = currentChunkCoords;
 
-        // Remove chunks outside data distance
         List<ChunkPos> toRemove = [];
         foreach (var key in _activeChunks.Keys)
         {
@@ -209,28 +208,27 @@ public class WorldManager : IDisposable
             chunk.Delete();
         }
         _activeChunks.Clear();
-        _textureAtlas.Dispose();
         GC.SuppressFinalize(this);
     }
 
-    public BlockType GetBlockAt(BlockPos position)
+    public ushort GetBlockAt(BlockPos position)
     {
         var chunkCoords = BlockToChunkCoords(position);
         if (!_activeChunks.TryGetValue(chunkCoords, out var chunk))
-            return BlockType.Air;
+            return 0;
 
         var localX = (int)(MathF.Floor(position.X) % Chunk.Size);
         var localY = (int)(MathF.Floor(position.Y));
         var localZ = (int)(MathF.Floor(position.Z) % Chunk.Size);
 
         if (localX < 0) localX += Chunk.Size;
-        if (localY is < 0 or >= Chunk.Height) return BlockType.Air;
+        if (localY is < 0 or >= Chunk.Height) return 0;
         if (localZ < 0) localZ += Chunk.Size;
 
         return chunk.GetBlock(localX, localY, localZ);
     }
 
-    public void SetBlockAt(BlockPos position, BlockType block)
+    public void SetBlockAt(BlockPos position, ushort block)
     {
         var chunkCoords = BlockToChunkCoords(position);
         if (!_activeChunks.TryGetValue(chunkCoords, out var chunk))
