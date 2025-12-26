@@ -11,8 +11,9 @@ public class Vbo : IDisposable
     public void UploadData<T>(List<T> data, BufferUsageHint hint = BufferUsageHint.StaticDraw) where T : struct
     {
         Bind();
-        var span = CollectionsMarshal.AsSpan(data);
         var sizeInBytes = data.Count * Marshal.SizeOf<T>();
+
+        var span = CollectionsMarshal.AsSpan(data);
         GL.BufferData(BufferTarget.ArrayBuffer, sizeInBytes, ref span[0], hint);
     }
 

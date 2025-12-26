@@ -1,27 +1,32 @@
-﻿using OpenTK.Mathematics;
+﻿using Minicraft.Game.Registries;
+using OpenTK.Mathematics;
 
 namespace Minicraft.Game.Items;
 
-public record Item
+public class Item
 {
-    public ItemType Id { get; }
-    public string Name { get; set; }
+    public ushort Id { get; set; }
+
+    public string InternalName { get; set; } = "item:air";
+
     public int MaxStackSize { get; set; }
 
-    // X, Y, Width, Height
-    public Vector4 UvRect { get; }
+    private readonly HashSet<string> _tags;
 
-    public Item(ItemType id, string name, int maxStackSize, Vector2 iconCoords)
+    public Item(string simpleName, int maxStackSize, List<string> tags)
     {
-        Id = id;
-        Name = name;
+        InternalName = simpleName.ToLower();
         MaxStackSize = maxStackSize;
-
-        UvRect = new Vector4(
-            iconCoords.X / 16f,
-            iconCoords.Y / 16f,
-            1f / 16f,
-            1f / 16f
-        );
+        _tags = new HashSet<string>(tags.Select(t => t.ToLower()));
     }
+
+    /// <summary>
+    /// Fetches the current UV coordinates for this item from the Global Registry.
+    /// </summary>
+    public Vector4 GetUvs()
+    {
+        return AssetRegistry.Get(InternalName).Uvs;
+    }
+
+    public bool HasTag(string tag) => _tags.Contains(tag.ToLower());
 }

@@ -1,6 +1,4 @@
-﻿using Minicraft.Game.Items;
-
-namespace Minicraft.Game.Ecs.Components;
+﻿namespace Minicraft.Game.Ecs.Components;
 
 public class InventoryComponent
 {
@@ -26,7 +24,7 @@ public class InventoryComponent
     {
         for (var i = 0; i < TotalSize; i++)
         {
-            Slots[i] = new ItemStack(ItemType.Air, 0);
+            Slots[i] = new ItemStack(0, 0);
         }
     }
 

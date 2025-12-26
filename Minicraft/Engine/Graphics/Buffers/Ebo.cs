@@ -13,8 +13,9 @@ public class Ebo() : IDisposable
     {
         Count = data.Count;
         Bind();
-        var span = CollectionsMarshal.AsSpan(data);
         var sizeInBytes = data.Count * Marshal.SizeOf<T>();
+
+        var span = CollectionsMarshal.AsSpan(data);
         GL.BufferData(BufferTarget.ElementArrayBuffer, sizeInBytes, ref span[0], hint);
     }
 

@@ -10,7 +10,7 @@ public class BlockOutline : IDisposable
 {
     private readonly Vao _vao;
     private readonly Vbo _vbo;
-    private readonly ShaderProgram _shader;
+    private readonly Shader _shader;
 
     public BlockOutline()
     {
@@ -35,7 +35,7 @@ public class BlockOutline : IDisposable
             (0, 0, 1), (0, 1, 1)
         ];
 
-        _shader = new ShaderProgram("Outline.vert", "Outline.frag");
+        _shader = new Shader("Outline.vert", "Outline.frag");
 
         _vao = new Vao();
         _vao.Bind();
@@ -50,7 +50,7 @@ public class BlockOutline : IDisposable
 
     public void Render(Vector3 position, Matrix4 view, Matrix4 projection)
     {
-        _shader.Bind();
+        _shader.Use();
 
         var model = Matrix4.CreateTranslation(position);
 

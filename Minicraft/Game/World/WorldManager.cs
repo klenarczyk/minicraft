@@ -1,12 +1,11 @@
-﻿using System.Collections.Concurrent;
+﻿using Minicraft.Engine.Graphics;
 using Minicraft.Engine.Graphics.Core;
 using Minicraft.Engine.Graphics.Resources;
 using Minicraft.Game.Data;
-using Minicraft.Game.Managers;
-using Minicraft.Game.World.Blocks;
 using Minicraft.Game.World.Chunks;
-using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
+using System.Collections.Concurrent;
+using OpenTK.Graphics.OpenGL4;
 
 namespace Minicraft.Game.World;
 
@@ -30,21 +29,27 @@ public class WorldManager : IDisposable
         UpdateWorld(startingPos);
     }
 
-    public void Render(ShaderProgram program, GlobalPos cameraPosition)
+    public void Render(Shader program, GlobalPos cameraPosition)
     {
         UpdateWorld(cameraPosition);
         ProcessUploadQueue();
 
-        program.Bind();
-        if (Assets.BlockAtlas != null) GL.BindTexture(TextureTarget.Texture2D, Assets.BlockAtlas.AtlasTextureId);
+        program.Use();
+        RenderBatcher.BeginWorldPass();
+
+        var textureLoc = GL.GetUniformLocation(program.Id, "texture0");
+        GL.Uniform1(textureLoc, 0);
 
         foreach (var chunk in _activeChunks.Values)
         {
             var min = new Vector3(chunk.Position.X, 0, chunk.Position.Z);
             var max = new Vector3(chunk.Position.X + Chunk.Size, Chunk.Height, chunk.Position.Z + Chunk.Size);
 
+            // Only render if the mesh exists and is inside the player's view
             if (chunk is { IsActive: true, IsMeshGenerated: true } && Frustum.IsBoxVisible(min, max))
+            {
                 chunk.Render(program);
+            }
         }
     }
 
@@ -85,8 +90,10 @@ public class WorldManager : IDisposable
 
     private void SpawnChunkGeneration(ChunkPos chunkCoords)
     {
-        var chunkPosition = new ChunkPos(chunkCoords.X * Chunk.Size, chunkCoords.Z * Chunk.Size);
-        var newChunk = new Chunk(chunkPosition);
+        var worldX = chunkCoords.X * Chunk.Size;
+        var worldZ = chunkCoords.Z * Chunk.Size;
+
+        var newChunk = new Chunk(new ChunkPos(worldX, worldZ));
 
         if (!_chunksProcessingData.TryAdd(chunkCoords, true)) return;
 
@@ -95,7 +102,6 @@ public class WorldManager : IDisposable
             try
             {
                 newChunk.GenerateData();
-
                 _activeChunks.TryAdd(chunkCoords, newChunk);
 
                 CheckAndRequestMesh(chunkCoords);

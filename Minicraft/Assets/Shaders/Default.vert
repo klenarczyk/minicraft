@@ -18,10 +18,10 @@ const float gradient = 1.5;
 
 void main()
 {
-	vec4 worldPosition = vec4(aPos, 1.0) * model;
-	vec4 positionRelativeToCam = worldPosition * view;
+	vec4 worldPosition = model * vec4(aPos, 1.0);
+	vec4 positionRelativeToCam = view * worldPosition;
 
-	gl_Position = positionRelativeToCam * projection;
+	gl_Position = projection * positionRelativeToCam;
 
 	texCoord = aTexCoord;
 	aoValue = aAO;

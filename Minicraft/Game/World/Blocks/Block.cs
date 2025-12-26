@@ -4,7 +4,7 @@ using OpenTK.Mathematics;
 
 namespace Minicraft.Game.World.Blocks;
 
-public class Block(BlockBehavior behavior, float hardness, float resistance, Dictionary<BlockFace, Vector2[]> uvs, List<string> tags)
+public class Block(BlockBehavior behavior, float hardness, float resistance, Dictionary<BlockFace, Vector4> uvs, List<string> tags)
 {
     public ushort Id { get; set; }
     public string InternalName { get; set; }
@@ -16,7 +16,7 @@ public class Block(BlockBehavior behavior, float hardness, float resistance, Dic
 
     private readonly HashSet<string> _tags = [..tags.Select(t => t.ToLower())];
 
-    public Dictionary<BlockFace, Vector2[]> TextureUvs { get; } = uvs;
+    public Dictionary<BlockFace, Vector4> Uvs { get; } = uvs;
 
     public bool HasTag(string tag) => _tags.Contains(tag.ToLower());
 }

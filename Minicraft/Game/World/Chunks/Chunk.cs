@@ -2,7 +2,7 @@
 using Minicraft.Engine.Graphics.Buffers;
 using Minicraft.Engine.Graphics.Resources;
 using Minicraft.Game.Data;
-using Minicraft.Game.World.Blocks;
+using Minicraft.Game.Registries;
 using Minicraft.Game.World.Meshing;
 using Minicraft.Vendor;
 using OpenTK.Graphics.OpenGL4;
@@ -116,6 +116,8 @@ public class Chunk(ChunkPos position)
     {
         try
         {
+            var bedrockId = BlockRegistry.GetId("bedrock");
+            var stoneId = BlockRegistry.GetId("stone");
             var dirtId = BlockRegistry.GetId("dirt_block");
             var grassId = BlockRegistry.GetId("grass_block");
 
@@ -127,7 +129,11 @@ public class Chunk(ChunkPos position)
                 {
                     ushort blockId = 0;
 
-                    if (y < columnHeight - 1)
+                    if (y == 0)
+                        blockId = bedrockId;
+                    else if (y < columnHeight - 4)
+                        blockId = stoneId;
+                    else if (y < columnHeight - 1)
                         blockId = dirtId;
                     else if (y == columnHeight - 1)
                         blockId = grassId;
@@ -194,9 +200,14 @@ public class Chunk(ChunkPos position)
             _vertices.Add(vert + new Vector3(Position.X + x, y, Position.Z + z));
 
         // UVs
-        _uvs.AddRange(blockDef.TextureUvs.TryGetValue(blockFace, out var faceUvs)
-            ? faceUvs
-            : [Vector2.Zero, Vector2.Zero, Vector2.Zero, Vector2.Zero]);
+        if (blockDef.Uvs.TryGetValue(blockFace, out var faceUvs))
+        {
+            // BL -> BR -> TR -> TL
+            _uvs.Add(new Vector2(faceUvs.X, faceUvs.Y));
+            _uvs.Add(new Vector2(faceUvs.X + faceUvs.Z, faceUvs.Y));
+            _uvs.Add(new Vector2(faceUvs.X + faceUvs.Z, faceUvs.Y + faceUvs.W));
+            _uvs.Add(new Vector2(faceUvs.X, faceUvs.Y + faceUvs.W));
+        }
 
         // Ambient Occlusion
         var faceAo = new float[4];
@@ -361,7 +372,7 @@ public class Chunk(ChunkPos position)
         return y * 16 * 16 + z * 16 + x;
     }
 
-    public void Render(ShaderProgram program)
+    public void Render(Shader program)
     {
         if (!IsActive) return;
 

@@ -1,11 +1,11 @@
 ﻿using System.Text.Json;
 using Minicraft.Game.Data;
-using Minicraft.Game.Managers;
+using Minicraft.Game.World.Blocks;
 using Minicraft.Game.World.Blocks.Behaviors;
 using Minicraft.Game.World.Meshing;
 using OpenTK.Mathematics;
 
-namespace Minicraft.Game.World.Blocks;
+namespace Minicraft.Game.Registries;
 
 public static class BlockRegistry
 {
@@ -18,39 +18,52 @@ public static class BlockRegistry
     public static void Initialize()
     {
         var airBehavior = new AirBlock();
-        Register("air", new Block(airBehavior, 0, 0, new Dictionary<BlockFace, Vector2[]>(), []));
+        Register("air", new Block(airBehavior, 0, 0, new Dictionary<BlockFace, Vector4>(), []));
         LoadAllBlocks();
     }
 
     public static Block Get(ushort id)
     {
-        return id >= _nextId ? Blocks[0] : Blocks[id];
+        if (id >= Blocks.Length || Blocks[id] == null)
+            return Blocks[0];
+
+        return Blocks[id];
+    }
+
+    public static bool TryGet(ushort id, out Block block)
+    {
+        if (id >= _nextId)
+        {
+            block = Blocks[0];
+            return false;
+        }
+
+        block = Blocks[id];
+        return true;
     }
 
     public static ushort GetId(string name)
     {
-        return NameToId.GetValueOrDefault(name.ToLower(), (ushort)0);
+        return NameToId.GetValueOrDefault($"block:{name.ToLower()}", (ushort)0);
     }
 
     private static void Register(string name, Block def)
     {
-        var key = name.ToLower();
+        var key = $"block:{name.ToLower()}";
         if (NameToId.ContainsKey(key)) return;
 
-        var id = key == "air" ? (ushort)0 : _nextId++;
+        var id = name == "air" ? (ushort)0 : _nextId++;
 
         NameToId[key] = id;
         Blocks[id] = def;
 
         def.Id = id;
-        def.InternalName = $"minicraft:{key}";
-
-        Console.WriteLine($"Registered Block: {key} (Id: {id})");
+        def.InternalName = key;
     }
 
     public static void LoadAllBlocks()
     {
-        var dataPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "Data", "Blocks");
+        var dataPath = Path.Combine(AppContext.BaseDirectory, "Assets", "Data", "Blocks");
         var files = Directory.GetFiles(dataPath, "*.json");
 
         foreach (var file in files)
@@ -58,19 +71,26 @@ public static class BlockRegistry
             try
             {
                 var json = File.ReadAllText(file);
+                var name = Path.GetFileNameWithoutExtension(file);
+
                 var data = JsonSerializer.Deserialize<BlockStatsJson>(json, JsonOptions);
 
                 var behavior = GetBehaviorFromString(data.Behavior);
-                var uvs = LoadModelUvs(data.Id);
+                var uvs = LoadModelUvs(name);
 
                 var def = new Block(behavior, data.Hardness, data.Resistance, uvs, data.Tags);
-                Register(data.Id, def);
+                Register(name, def);
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Failed to load block {file}: {ex.Message}");
             }
         }
+    }
+
+    public static List<Block> GetAllBlocks()
+    {
+        return Blocks.Where(b => b != null).ToList();
     }
 
     private static BlockBehavior GetBehaviorFromString(string behaviorName)
@@ -83,14 +103,14 @@ public static class BlockRegistry
         };
     }
 
-    private static Dictionary<BlockFace, Vector2[]> LoadModelUvs(string blockId)
+    private static Dictionary<BlockFace, Vector4> LoadModelUvs(string name)
     {
-        var result = new Dictionary<BlockFace, Vector2[]>();
-        var modelPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "Models", "Blocks", $"{blockId.ToLower()}.json");
+        var result = new Dictionary<BlockFace, Vector4>();
+        var modelPath = Path.Combine(AppContext.BaseDirectory, "Assets", "Models", "Blocks", $"{name.ToLower()}.json");
 
         if (!File.Exists(modelPath))
         {
-            Console.WriteLine($"Warning: No model found for {blockId}.");
+            Console.WriteLine($"Warning: No model found for {name}.");
             return GetDefaultFaces();
         }
 
@@ -100,11 +120,12 @@ public static class BlockRegistry
 
         if (modelData.Textures.TryGetValue("all", out var textureName))
         {
-            var uv = Assets.BlockAtlas?.GetUvs(textureName);
+            var meta = AssetRegistry.Get($"block:{textureName}");
+            var uvArray = meta.Uvs;
 
             foreach (BlockFace face in Enum.GetValues(typeof(BlockFace)))
             {
-                result[face] = uv;
+                result[face] = uvArray;
             }
         }
         else
@@ -121,19 +142,21 @@ public static class BlockRegistry
         return result;
     }
 
-    private static void AssignFace(Dictionary<BlockFace, Vector2[]> result, Dictionary<string, string> textures,
+    private static void AssignFace(Dictionary<BlockFace, Vector4> result, Dictionary<string, string> textures,
         BlockFace face, params string[] keys)
     {
         foreach (var key in keys)
         {
             if (!textures.TryGetValue(key, out var textureName)) continue;
-            result[face] = Assets.BlockAtlas.GetUvs(textureName);
+
+            var meta = AssetRegistry.GetBlock(textureName);
+            result[face] = meta.Uvs;
             return;
         }
     }
 
-    private static Dictionary<BlockFace, Vector2[]> GetDefaultFaces()
+    private static Dictionary<BlockFace, Vector4> GetDefaultFaces()
     {
-        throw new Exception("Default faces are not present.");
+        throw new NotImplementedException();
     }
 }

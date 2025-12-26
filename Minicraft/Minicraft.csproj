@@ -28,6 +28,9 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <Folder Include="Assets\Data\Items\" />
+	  <Folder Include="Assets\Textures\Items\" />
+	  <Folder Include="Game\Ui\Elements\" />
 	  <Folder Include="Game\World\Generation\" />
 	</ItemGroup>
 

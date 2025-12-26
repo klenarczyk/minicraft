@@ -1,31 +1,41 @@
-﻿using Minicraft.Engine.Graphics.Resources;
-using Minicraft.Engine.Gui;
+﻿using Minicraft.Engine.Ui;
 using Minicraft.Game.Ecs.Components;
+using Minicraft.Game.Ui.Elements;
 
 namespace Minicraft.Game.Ui;
 
-public class HudManager : IDisposable
+public sealed class HudManager : IDisposable
 {
-    private readonly CrosshairElement _crosshair = new();
-    private readonly HotbarElement _hotbar = new();
-    
-    private readonly Texture _widgetsTexture = new("widgets.png");
-    private readonly Texture _iconsTexture = new("icons.png");
-    private readonly Texture _itemTexture = new("icons.png");
+    private readonly UiRenderer _renderer;
+    private readonly List<UiElement> _elements = [];
 
-    public void Draw(GuiRenderer renderer, InventoryComponent inventory, int windowWidth, int windowHeight)
+    public HudManager(int width, int height)
     {
-        renderer.RenderStart();
+        _renderer = new UiRenderer(width, height);
 
-        _crosshair.Draw(renderer, _iconsTexture, windowWidth, windowHeight);
-        _hotbar.Draw(renderer, _widgetsTexture, _itemTexture, inventory, windowWidth, windowHeight);
+        _elements.Add(new CrosshairElement());
+        _elements.Add(new HotbarElement());
+    }
 
-        renderer.RenderEnd();
+    public void Resize(int width, int height)
+    {
+        _renderer.Resize(width, height);
+    }
+
+    public void Draw(InventoryComponent playerInventory, int width, int height)
+    {
+        _renderer.BeginPass();
+
+        foreach (var element in _elements)
+        {
+            element.Draw(_renderer, playerInventory, width, height);
+        }
+
+        _renderer.EndPass();
     }
 
     public void Dispose()
     {
-        _widgetsTexture.Dispose();
-        _iconsTexture.Dispose();
+        _renderer.Dispose();
     }
 }

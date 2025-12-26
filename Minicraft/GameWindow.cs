@@ -1,16 +1,15 @@
 ﻿using Minicraft.Engine.Graphics.Core;
 using Minicraft.Engine.Graphics.Resources;
-using Minicraft.Engine.Gui;
+using Minicraft.Engine.Ui; // Contains GuiRenderer
 using Minicraft.Game.Data;
 using Minicraft.Game.Ecs;
 using Minicraft.Game.Ecs.Components;
 using Minicraft.Game.Ecs.Systems;
-using Minicraft.Game.Items;
-using Minicraft.Game.Managers;
+using Minicraft.Game.Items.ItemTypes;
+using Minicraft.Game.Registries;
 using Minicraft.Game.Rendering;
-using Minicraft.Game.Ui;
+using Minicraft.Game.Ui; // Contains HudManager
 using Minicraft.Game.World;
-using Minicraft.Game.World.Blocks;
 using Minicraft.Game.World.Physics;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
@@ -23,7 +22,7 @@ namespace Minicraft;
 public class GameWindow : OpenTK.Windowing.Desktop.GameWindow
 {
     private WorldManager? _world;
-    private ShaderProgram? _program;
+    private Shader? _shader;
     private Camera? _camera;
 
     private Entity? _player;
@@ -35,15 +34,11 @@ public class GameWindow : OpenTK.Windowing.Desktop.GameWindow
     private BlockOutline? _outline;
     private RaycastResult _currentHit = new() { Hit = false };
 
-    private GuiRenderer? _gui;
     private HudManager? _hudManager;
     private InventoryComponent? _playerInventory;
 
     private bool _freezeFrustum;
     private bool _wireframeEnabled;
-
-    private readonly int _screenWidth;
-    private readonly int _screenHeight;
 
     private readonly Vector3 _skyColor = new(0.5f, 0.7f, 1.0f);
 
@@ -51,31 +46,38 @@ public class GameWindow : OpenTK.Windowing.Desktop.GameWindow
         : base(GameWindowSettings.Default, NativeWindowSettings.Default)
     {
         CenterWindow(new Vector2i(width, height));
-        _screenWidth = width;
-        _screenHeight = height;
     }
 
     protected override void OnLoad()
     {
         base.OnLoad();
 
-        Assets.Load(Path.Combine(AppContext.BaseDirectory, "Assets"));
-        BlockRegistry.Initialize();
+        // Asset Pipeline
+        var resourceManager = new ResourceManager();
+        var assetsPath = Path.Combine(AppContext.BaseDirectory, "Assets");
+        resourceManager.Initialize(assetsPath);
+
+        // Game Registries
+        // BlockRegistry.Initialize(); // Called inside ResourceManager
+        ItemRegistry.Initialize();
 
         var startingPos = new GlobalPos(0.0, 50.0, 0.0);
         _world = new WorldManager(startingPos);
-        _program = new ShaderProgram("Default.vert", "Default.frag");
-        _camera = new Camera(_screenWidth, _screenHeight);
+        _shader = new Shader("Default.vert", "Default.frag");
+        _camera = new Camera(Size.X, Size.Y);
         _raycaster = new Raycaster(_world);
         _outline = new BlockOutline();
 
+        // Standard GL Settings
         GL.Enable(EnableCap.DepthTest);
-
         GL.Enable(EnableCap.CullFace);
         GL.CullFace(TriangleFace.Back);
+        GL.Enable(EnableCap.Blend);
+        GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 
         CursorState = CursorState.Grabbed;
 
+        // ECS Initialization
         _player = new Entity();
         _player.AddComponent(new PositionComponent { Position = startingPos });
         _player.AddComponent(new VelocityComponent());
@@ -84,71 +86,64 @@ public class GameWindow : OpenTK.Windowing.Desktop.GameWindow
         _inputSystem = new InputSystem();
         _physicsSystem = new PhysicsSystem(_world);
 
-        _gui = new GuiRenderer(_screenWidth, _screenHeight);
-        _hudManager = new HudManager();
+        // HUD Initialization
+        _hudManager = new HudManager(Size.X, Size.Y);
 
         _playerInventory = new InventoryComponent();
         _inventorySystem = new InventorySystem();
-        _inventorySystem.AddToInventory(_playerInventory, new ItemStack(ItemType.Grass, 5));
-        _inventorySystem.AddToInventory(_playerInventory, new ItemStack(ItemType.Dirt, 16));
-        _playerInventory.SelectedSlotIndex = 0;
 
+        // TEMP: Add some blocks to inventory for testing
+        _inventorySystem.AddToInventory(_playerInventory, new ItemStack(1, 5));
+        _inventorySystem.AddToInventory(_playerInventory, new ItemStack(2, 5));
+        _inventorySystem.AddToInventory(_playerInventory, new ItemStack(3, 5));
+        _inventorySystem.AddToInventory(_playerInventory, new ItemStack(4, 5));
+        _inventorySystem.AddToInventory(_playerInventory, new ItemStack(5, 5));
         _player.AddComponent(_playerInventory);
-    }
-
-    protected override void OnUnload()
-    {
-        base.OnUnload();
-
-        _world?.Dispose();
-        _program?.Dispose();
-        _outline?.Dispose();
-        _gui?.Dispose();
     }
 
     protected override void OnRenderFrame(FrameEventArgs args)
     {
         base.OnRenderFrame(args);
-
-        if (_camera == null || _program == null || _world == null) return;
+        if (_camera == null || _shader == null || _world == null) return;
 
         GL.ClearColor(_skyColor.X, _skyColor.Y, _skyColor.Z, 1.0f);
         GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
-        _program.Bind();
+        // 3D Render Pass
+        _shader.Use();
 
-        // Transformation matrices
-        var model = Matrix4.Identity;
         var view = _camera.GetViewMatrix();
         var projection = _camera.GetProjectionMatrix();
 
-        var modelLocation = GL.GetUniformLocation(_program.Id, "model");
-        var viewLocation = GL.GetUniformLocation(_program.Id, "view");
-        var projectionLocation = GL.GetUniformLocation(_program.Id, "projection");
+        _shader.SetMatrix4("view", view);
+        _shader.SetMatrix4("projection", projection);
+        _shader.SetMatrix4("model", Matrix4.Identity);
 
-        GL.UniformMatrix4(modelLocation, true, ref model);
-        GL.UniformMatrix4(viewLocation, true, ref view);
-        GL.UniformMatrix4(projectionLocation, true, ref projection);
-
-        var skyLoc = GL.GetUniformLocation(_program.Id, "skyColor");
+        var skyLoc = GL.GetUniformLocation(_shader.Id, "skyColor");
         GL.Uniform3(skyLoc, _skyColor);
 
         if (!_freezeFrustum)
-        {
-            Frustum.Update(_camera.GetViewMatrix() * _camera.GetProjectionMatrix());
-        }
+            Frustum.Update(view * projection);
 
         if (_wireframeEnabled)
             GL.PolygonMode(TriangleFace.FrontAndBack, PolygonMode.Line);
 
-        _world.Render(_program, _camera.Position);
+        _world.Render(_shader, _camera.Position);
 
         GL.PolygonMode(TriangleFace.FrontAndBack, PolygonMode.Fill);
-        var targetPos = new Vector3(_currentHit.BlockPosition.X, _currentHit.BlockPosition.Y, _currentHit.BlockPosition.Z);
-        if (_currentHit.Hit)
-            _outline?.Render(targetPos, _camera.GetViewMatrix(), _camera.GetProjectionMatrix());
 
-        _hudManager.Draw(_gui, _player.GetComponent<InventoryComponent>(), Size.X, Size.Y);
+        // Render Outline
+        if (_currentHit.Hit)
+        {
+            var targetPos = new Vector3(_currentHit.BlockPosition.X, _currentHit.BlockPosition.Y, _currentHit.BlockPosition.Z);
+            _outline?.Render(targetPos, view, projection);
+        }
+
+        // UI Render Pass
+        if (_hudManager != null && _playerInventory != null)
+        {
+            _hudManager.Draw(_playerInventory, Size.X, Size.Y);
+        }
 
         Context.SwapBuffers();
     }
@@ -162,20 +157,25 @@ public class GameWindow : OpenTK.Windowing.Desktop.GameWindow
             CursorState = CursorState.Normal;
             return;
         }
-        
+
         CursorState = CursorState.Grabbed;
 
         if (KeyboardState.IsKeyPressed(Keys.Escape))
             Close();
-        if (KeyboardState.IsKeyPressed(Keys.F1) && _gui != null)
-            _gui.IsVisible = !_gui.IsVisible;
+
+        // F1 Toggle: You might want to expose a property in HudManager to handle this, 
+        // e.g., _hudManager.IsVisible = !_hudManager.IsVisible;
+        // if (KeyboardState.IsKeyPressed(Keys.F1)) { ... } 
+
         if (KeyboardState.IsKeyPressed(Keys.F4))
             _wireframeEnabled = !_wireframeEnabled;
+
         if (KeyboardState.IsKeyPressed(Keys.F5))
         {
             _freezeFrustum = !_freezeFrustum;
             Console.WriteLine($"Frustum Frozen: {_freezeFrustum}");
         }
+
         if (KeyboardState.IsKeyPressed(Keys.F11))
             WindowState = WindowState == WindowState.Fullscreen ? WindowState.Normal : WindowState.Fullscreen;
 
@@ -185,9 +185,11 @@ public class GameWindow : OpenTK.Windowing.Desktop.GameWindow
 
         _currentHit = _raycaster.Raycast(_camera.Position, _camera.Front, 5.0f);
 
+        // Block Breaking
         if (MouseState.IsButtonPressed(MouseButton.Left) && _currentHit.Hit && CursorState == CursorState.Grabbed)
             _world.SetBlockAt(_currentHit.BlockPosition, 0);
 
+        // Block Placing
         if (MouseState.IsButtonPressed(MouseButton.Right) && _currentHit.Hit && CursorState == CursorState.Grabbed)
         {
             var playerFootPos = _player.GetComponent<PositionComponent>().Position;
@@ -201,6 +203,7 @@ public class GameWindow : OpenTK.Windowing.Desktop.GameWindow
                 _world.SetBlockAt(placePos, block.BlockToPlace);
         }
 
+        // Hotbar Scrolling
         if (MouseState.ScrollDelta.Y != 0)
         {
             var direction = MouseState.ScrollDelta.Y > 0 ? -1 : 1;
@@ -225,6 +228,17 @@ public class GameWindow : OpenTK.Windowing.Desktop.GameWindow
         _camera?.ScreenWidth = e.Width;
         _camera?.ScreenHeight = e.Height;
 
-        _gui?.Resize(e.Width, e.Height);
+        _hudManager?.Resize(e.Width, e.Height);
+    }
+
+    protected override void OnUnload()
+    {
+        base.OnUnload();
+
+        _world?.Dispose();
+        _shader?.Dispose();
+        _outline?.Dispose();
+
+        _hudManager?.Dispose();
     }
 }

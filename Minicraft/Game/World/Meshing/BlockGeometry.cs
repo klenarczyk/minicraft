@@ -23,4 +23,14 @@ public static class BlockGeometry
         {BlockFace.Top,    [ new Vector3(0, 1, 1), new Vector3(1, 1, 1), new Vector3(1, 1, 0), new Vector3(0, 1, 0) ]},
         {BlockFace.Bottom, [ new Vector3(0, 0, 0), new Vector3(1, 0, 0), new Vector3(1, 0, 1), new Vector3(0, 0, 1) ]}
     };
+
+    public static readonly Dictionary<BlockFace, Vector3> FaceNormals = new()
+    {
+        { BlockFace.Front,  new Vector3(0, 0, 1)  },
+        { BlockFace.Back,   new Vector3(0, 0, -1) },
+        { BlockFace.Right,  new Vector3(1, 0, 0)  },
+        { BlockFace.Left,   new Vector3(-1, 0, 0) },
+        { BlockFace.Top,    new Vector3(0, 1, 0)  },
+        { BlockFace.Bottom, new Vector3(0, -1, 0) }
+    };
 }
