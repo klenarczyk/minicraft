@@ -1,6 +1,5 @@
 ﻿using Minicraft.Engine.Graphics.Core;
 using Minicraft.Engine.Graphics.Resources;
-using Minicraft.Engine.Ui; // Contains GuiRenderer
 using Minicraft.Game.Data;
 using Minicraft.Game.Ecs;
 using Minicraft.Game.Ecs.Components;
@@ -8,7 +7,7 @@ using Minicraft.Game.Ecs.Systems;
 using Minicraft.Game.Items.ItemTypes;
 using Minicraft.Game.Registries;
 using Minicraft.Game.Rendering;
-using Minicraft.Game.Ui; // Contains HudManager
+using Minicraft.Game.Ui;
 using Minicraft.Game.World;
 using Minicraft.Game.World.Physics;
 using OpenTK.Graphics.OpenGL4;
