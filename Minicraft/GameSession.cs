@@ -29,6 +29,7 @@ public class GameSession : IDisposable
     private readonly InputSystem _inputSystem;
     private readonly PhysicsSystem _physicsSystem;
     private readonly InventorySystem _inventorySystem;
+    private readonly BlockInteractionSystem _interactionSystem;
     private InventoryComponent _playerInventory;
 
     private readonly Raycaster _raycaster;
@@ -57,6 +58,7 @@ public class GameSession : IDisposable
         _inputSystem = new InputSystem();
         _physicsSystem = new PhysicsSystem(World);
         _inventorySystem = new InventorySystem();
+        _interactionSystem = new BlockInteractionSystem(World, _raycaster);
 
         // TEMP: Starter Blocks
         PopulateInventory();
@@ -68,6 +70,7 @@ public class GameSession : IDisposable
         _player.AddComponent(new PositionComponent { Position = startPos });
         _player.AddComponent(new VelocityComponent());
         _player.AddComponent(new PhysicsComponent());
+        _player.AddComponent(new TargetingComponent());
 
         _playerInventory = new InventoryComponent();
         _player.AddComponent(_playerInventory);
@@ -86,13 +89,14 @@ public class GameSession : IDisposable
         if (keyboard.IsKeyPressed(Keys.F4)) _wireframeEnabled = !_wireframeEnabled;
         if (keyboard.IsKeyPressed(Keys.F5)) { _freezeFrustum = !_freezeFrustum; Console.WriteLine($"Frustum: {!_freezeFrustum}"); }
 
-        _currentHit = _raycaster.Raycast(Camera.Position, Camera.Front, 5.0f);
-        HandleBlockInteraction(mouse);
         HandleHotbar(mouse);
 
         Camera.InputController(mouse);
         _inputSystem.Update(_player, Camera, keyboard, dt);
         _physicsSystem.Update(_player, dt);
+
+        if (_window.CursorState == CursorState.Grabbed)
+            _interactionSystem.Update(_player, Camera, mouse, dt);
 
         var playerPos = _player.GetComponent<PositionComponent>().Position;
         Camera.Position = playerPos + new GlobalPos(0.0, 1.62, 0.0);
@@ -117,10 +121,12 @@ public class GameSession : IDisposable
         World.Render(_shader, Camera.Position);
         GL.PolygonMode(TriangleFace.FrontAndBack, PolygonMode.Fill);
 
-        if (_currentHit.Hit)
+        var target = _player.GetComponent<TargetingComponent>();
+        if (target.CurrentHit.Hit)
         {
-            var targetPos = new Vector3(_currentHit.BlockPosition.X, _currentHit.BlockPosition.Y, _currentHit.BlockPosition.Z);
-            _outline.Render(targetPos, view, projection);
+            var hitPos = target.CurrentHit.BlockPosition;
+            var vec = new Vector3(hitPos.X, hitPos.Y, hitPos.Z);
+            _outline.Render(vec, Camera.GetViewMatrix(), Camera.GetProjectionMatrix());
         }
 
         // UI Pass
@@ -132,28 +138,6 @@ public class GameSession : IDisposable
         Camera.ScreenWidth = width;
         Camera.ScreenHeight = height;
         _hudManager.Resize(width, height);
-    }
-
-    private void HandleBlockInteraction(MouseState mouse)
-    {
-        if (!_currentHit.Hit || _window.CursorState != CursorState.Grabbed) return;
-
-        if (mouse.IsButtonPressed(MouseButton.Left))
-            World.SetBlockAt(_currentHit.BlockPosition, 0);
-
-        if (mouse.IsButtonPressed(MouseButton.Right))
-        {
-            var playerPos = _player.GetComponent<PositionComponent>().Position;
-            var playerGrid = new BlockPos((int)playerPos.X, (int)playerPos.Y, (int)playerPos.Z);
-
-            if (_currentHit.PlacePosition == playerGrid || _currentHit.PlacePosition == playerGrid + new BlockPos(0, 1, 0)) return;
-
-            var slot = _playerInventory.Slots[_playerInventory.SelectedSlotIndex];
-            var item = ItemRegistry.Get(slot.ItemId);
-
-            if (item is BlockItem bItem)
-                World.SetBlockAt(_currentHit.PlacePosition, bItem.BlockToPlace);
-        }
     }
 
     private void HandleHotbar(MouseState mouse)
