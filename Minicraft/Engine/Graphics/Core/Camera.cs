@@ -35,7 +35,7 @@ public class Camera(float width, float height)
         return Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(Fov), ScreenWidth / ScreenHeight, 0.1f, 200f);
     }
 
-    public void InputController(MouseState mouse, FrameEventArgs e)
+    public void InputController(MouseState mouse)
     {
         var deltaX = mouse.Delta.X;
         var deltaY = mouse.Delta.Y;
