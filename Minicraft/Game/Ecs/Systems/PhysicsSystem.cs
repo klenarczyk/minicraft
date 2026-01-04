@@ -2,109 +2,103 @@
 using Minicraft.Game.Ecs.Components;
 using Minicraft.Game.Registries;
 using Minicraft.Game.World;
-using Minicraft.Game.World.Blocks;
 using OpenTK.Mathematics;
 
 namespace Minicraft.Game.Ecs.Systems;
 
 public class PhysicsSystem(WorldManager world)
 {
-    private const float Epsilon = 0.005f;
-    private const float Drag = 0.1f;
+    private const double BroadPhasePadding = 1.0;
 
-    public void Update(Entity entity, float deltaTime)
+    public void Update(Entity entity, float dt)
     {
         var pos = entity.GetComponent<PositionComponent>();
         var vel = entity.GetComponent<VelocityComponent>();
         var phys = entity.GetComponent<PhysicsComponent>();
 
-        if (!phys.IsFlying) vel.Velocity.Y -= phys.Gravity * deltaTime;
-        vel.Velocity.X *= 1.0f - Drag * deltaTime;
-        vel.Velocity.Z *= 1.0f - Drag * deltaTime;
+        if (!phys.IsFlying) vel.Velocity.Y -= phys.Gravity * dt;
 
-        ResolveAxis(pos, vel, phys, new Vector3(vel.Velocity.X * deltaTime, 0, 0), Axis.X);
-        ResolveAxis(pos, vel, phys, new Vector3(0, 0, vel.Velocity.Z * deltaTime), Axis.Z);
-        ResolveAxis(pos, vel, phys, new Vector3(0, vel.Velocity.Y * deltaTime, 0), Axis.Y);
+        var friction = phys.IsGrounded ? phys.DragGround : phys.DragAir;
+        var frictionFactor = MathF.Pow(friction, dt * 20.0f);
+
+        vel.Velocity.X *= frictionFactor;
+        vel.Velocity.Z *= frictionFactor;
+
+        var intendedMove = vel.Velocity * dt;
+        var entityBox = AABB.FromEntity(pos.Position, phys.Size);
+
+        var sweptBox = entityBox.Expand(intendedMove);
+        var colliders = GetPotentialColliders(sweptBox);
+
+        var originalY = intendedMove.Y;
+        var moveY = originalY;
+        foreach (var wall in colliders)
+        {
+            moveY = entityBox.CalculateOffset(wall, moveY, Axis.Y);
+        }
+        entityBox = entityBox.Offset(new Vector3(0, moveY, 0));
+
+        var originalX = intendedMove.X;
+        var moveX = originalX;
+        foreach (var wall in colliders)
+        {
+            moveX = entityBox.CalculateOffset(wall, moveX, Axis.X);
+        }
+        entityBox = entityBox.Offset(new Vector3(moveX, 0, 0));
+
+        var originalZ = intendedMove.Z;
+        var moveZ = originalZ;
+        foreach (var wall in colliders)
+        {
+            moveZ = entityBox.CalculateOffset(wall, moveZ, Axis.Z);
+        }
+        entityBox = entityBox.Offset(new Vector3(0, 0, moveZ));
+
+        phys.IsGrounded = originalY < 0 && moveY > originalY;
+        phys.IsCollidedHorizontally = MathF.Abs(moveX - originalX) > 1e-4 ||
+                                      MathF.Abs(moveZ - originalZ) > 1e-4;
+
+        if (MathF.Abs(moveX - originalX) > 1e-4) vel.Velocity.X = 0;
+        if (MathF.Abs(moveY - originalY) > 1e-4) vel.Velocity.Y = 0;
+        if (MathF.Abs(moveZ - originalZ) > 1e-4) vel.Velocity.Z = 0;
+
+        pos.Position = new GlobalPos(
+            entityBox.Min.X + phys.Size.X / 2.0,
+            entityBox.Min.Y,
+            entityBox.Min.Z + phys.Size.Z / 2.0
+        );
     }
 
-    private enum Axis { X, Y, Z}
-
-    private void ResolveAxis(PositionComponent pos, VelocityComponent vel, PhysicsComponent phys, Vector3 moveAmount, Axis axis)
+    /// <summary>
+    /// Broadphase: Scans the world for solid blocks intersecting the swept area.
+    /// </summary>
+    private List<AABB> GetPotentialColliders(AABB box)
     {
-        if (moveAmount == Vector3.Zero) return;
+        var colliders = new List<AABB>();
 
-        var targetPos = pos.Position + moveAmount;
+        var startX = (int)Math.Floor(box.Min.X - BroadPhasePadding);
+        var endX = (int)Math.Ceiling(box.Max.X + BroadPhasePadding);
+        var startY = (int)Math.Floor(box.Min.Y - BroadPhasePadding);
+        var endY = (int)Math.Ceiling(box.Max.Y + BroadPhasePadding);
+        var startZ = (int)Math.Floor(box.Min.Z - BroadPhasePadding);
+        var endZ = (int)Math.Ceiling(box.Max.Z + BroadPhasePadding);
 
-        var min = targetPos - new Vector3(phys.Size.X / 2, 0, phys.Size.Z / 2);
-        var max = targetPos + new Vector3(phys.Size.X / 2, phys.Size.Y, phys.Size.Z / 2);
-
-        if (CheckCollision(min, max))
+        for (var x = startX; x < endX; x++)
+        for (var y = startY; y < endY; y++)
+        for (var z = startZ; z < endZ; z++)
         {
-            switch (axis)
+            var blockId = world.GetBlockAt(new BlockPos(x, y, z));
+            if (blockId == 0) continue;
+
+            var blockDef = BlockRegistry.Get(blockId);
+            if (blockDef.Behavior.IsSolid)
             {
-                case Axis.Y:
-                {
-                    if (moveAmount.Y < 0)
-                    {
-                        pos.Position.Y = Math.Floor(pos.Position.Y + moveAmount.Y) + 1.0f + Epsilon;
-                        pos.Position.Y = Math.Round(pos.Position.Y) + (moveAmount.Y < 0 ? Epsilon : -phys.Size.Y - Epsilon);
-                        phys.IsGrounded = true;
-                    }
-                    else
-                    {
-                        pos.Position.Y = Math.Floor(pos.Position.Y + phys.Size.Y) - phys.Size.Y - Epsilon;
-                    }
-
-                    vel.Velocity.Y = 0;
-                    break;
-                }
-                case Axis.X:
-                {
-                    if (moveAmount.X > 0)
-                        pos.Position.X = Math.Floor(pos.Position.X + phys.Size.X / 2 + moveAmount.X) - phys.Size.X / 2 - Epsilon;
-                    else
-                        pos.Position.X = Math.Floor(pos.Position.X - phys.Size.X / 2 + moveAmount.X) + 1.0f + phys.Size.X / 2 + Epsilon;
-
-                    vel.Velocity.X = 0;
-                    break;
-                }
-                case Axis.Z:
-                {
-                    if (moveAmount.Z > 0)
-                        pos.Position.Z = Math.Floor(pos.Position.Z + phys.Size.Z / 2 + moveAmount.Z) - phys.Size.Z / 2 - Epsilon;
-                    else
-                        pos.Position.Z = Math.Floor(pos.Position.Z - phys.Size.Z / 2 + moveAmount.Z) + 1.0f + phys.Size.Z / 2 + Epsilon;
-
-                    vel.Velocity.Z = 0;
-                    break;
-                }
+                colliders.Add(new AABB(
+                    new GlobalPos(x, y, z),
+                    new GlobalPos(x + 1, y + 1, z + 1)));
             }
         }
-        else
-        {
-            pos.Position = targetPos;
-            if (axis == Axis.Y) phys.IsGrounded = false;
-        }
-    }
 
-    private bool CheckCollision(GlobalPos min, GlobalPos max)
-    {
-        var startX = (int)Math.Floor(min.X);
-        var endX = (int)Math.Floor(max.X - Epsilon);
-        var startY = (int)Math.Floor(min.Y);
-        var endY = (int)Math.Floor(max.Y - Epsilon);
-        var startZ = (int)Math.Floor(min.Z);
-        var endZ = (int)Math.Floor(max.Z - Epsilon);
-
-        for (var x = startX; x <= endX; x++)
-        for (var y = startY; y <= endY; y++)
-        for (var z = startZ; z <= endZ; z++)
-        {
-            var block = world.GetBlockAt(new BlockPos(x, y, z));
-            if (BlockRegistry.Get(block).Behavior.IsSolid)
-                return true;
-        }
-
-        return false;
+        return colliders;
     }
 }

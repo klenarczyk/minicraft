@@ -4,8 +4,13 @@ namespace Minicraft.Game.Ecs.Components;
 
 public class PhysicsComponent
 {
-    public Vector3 Size = new(0.6f, 1.8f, 0.6f);
+    public Vector3 Size { get; set; } = new(0.6f, 1.8f, 0.6f);
+
     public bool IsGrounded { get; set; } = false;
+    public bool IsCollidedHorizontally { get; set; } = false;
     public bool IsFlying { get; set; } = false;
-    public float Gravity = 27.0f;
+
+    public float Gravity = 32.0f;
+    public float DragAir = 0.9f;
+    public float DragGround = 0.6f;
 }

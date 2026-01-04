@@ -1,5 +1,4 @@
-﻿using Minicraft.Engine.Graphics;
-using Minicraft.Engine.Ui;
+﻿using Minicraft.Engine.Ui;
 using Minicraft.Game.Ecs.Components;
 using Minicraft.Game.Registries;
 
@@ -11,7 +10,7 @@ public class CrosshairElement : UiElement
 
     public override void Draw(UiRenderer renderer, InventoryComponent inventory, int screenW, int screenH)
     {
-        var size = Size * Scale;
+        const float size = Size * Scale;
         var x = (screenW - size) / 2f;
         var y = (screenH - size) / 2f;
 
