@@ -2,7 +2,10 @@
 
 namespace Minicraft.Game.Ecs.Components;
 
-public class PositionComponent
+/// <summary>
+/// Stores global position data for an entity.
+/// </summary>
+public class PositionComponent : IComponent
 {
     public GlobalPos Position;
 }

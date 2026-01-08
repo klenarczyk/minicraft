@@ -1,6 +1,4 @@
-﻿using Minicraft.Game.Items.ItemTypes;
-
-namespace Minicraft.Game.Ecs.Components;
+﻿namespace Minicraft.Game.Data;
 
 public struct ItemStack(ushort id, int amount)
 {

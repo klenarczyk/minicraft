@@ -1,11 +1,25 @@
-﻿using Minicraft.Game.Ecs.Components;
-using Minicraft.Game.Items;
+﻿using Minicraft.Game.Data;
+using Minicraft.Game.Ecs.Components;
 using Minicraft.Game.Registries;
 
 namespace Minicraft.Game.Ecs.Systems;
 
+/// <summary>
+/// Handles business logic for inventory management and manipulation.
+/// </summary>
 public class InventorySystem
 {
+    /// <summary>
+    /// Attempts to add an item stack to an inventory.
+    /// Priority is given to merging with existing stacks before filling empty slots.
+    /// </summary>
+    /// <param name="stackToAdd">
+    /// The item stack to add. 
+    /// <para><b>Note:</b> This object is modified during execution (amount is decreased as items are added).</para>
+    /// </param>
+    /// <returns>
+    /// <c>true</c> if the stack was fully consumed; <c>false</c> if leftovers remain.
+    /// </returns>
     public bool AddToInventory(InventoryComponent inventory, ItemStack stackToAdd)
     {
         if (stackToAdd.IsEmpty) return true;
@@ -13,6 +27,7 @@ public class InventorySystem
         var itemDef = ItemRegistry.Get(stackToAdd.ItemId);
         var maxStack = itemDef.MaxStackSize;
 
+        // Stack with existing items
         for (var i = 0; i < InventoryComponent.TotalSize; i++)
         {
             if (inventory.Slots[i].ItemId != stackToAdd.ItemId || inventory.Slots[i].Amount >= maxStack) continue;
@@ -26,6 +41,7 @@ public class InventorySystem
             if (stackToAdd.Amount <= 0) return true;
         }
 
+        // Fill empty slots
         for (var i = 0; i < InventoryComponent.TotalSize; i++)
         {
             if (!inventory.Slots[i].IsEmpty) continue;
@@ -37,12 +53,16 @@ public class InventorySystem
         return false;
     }
 
+    /// <summary>
+    /// Cycles the selected hotbar slot. Handles wrapping around edges.
+    /// </summary>
+    /// <param name="direction">Direction to scroll (+1 or -1).</param>
     public void ScrollHotbar(InventoryComponent inventory, int direction)
     {
-        var newSlot = inventory.SelectedSlotIndex + direction;
+        const int size = InventoryComponent.HotbarSize;
+        var newSlot = (inventory.SelectedSlotIndex + direction) % size;
 
-        if (newSlot < 0) newSlot = InventoryComponent.HotbarSize - 1;
-        if (newSlot >= InventoryComponent.HotbarSize) newSlot = 0;
+        if (newSlot < 0) newSlot += size;
 
         inventory.SelectedSlotIndex = newSlot;
     }

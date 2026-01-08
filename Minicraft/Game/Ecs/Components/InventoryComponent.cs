@@ -1,11 +1,20 @@
-﻿namespace Minicraft.Game.Ecs.Components;
+﻿using Minicraft.Game.Data;
 
-public class InventoryComponent
+namespace Minicraft.Game.Ecs.Components;
+
+/// <summary>
+/// Stores item data for an entity.
+/// </summary>
+public class InventoryComponent : IComponent
 {
     public const int HotbarSize = 9;
     public const int ContainerSize = 27;
     public const int TotalSize = HotbarSize + ContainerSize;
 
+    /// <summary>
+    /// A flat array containing all items (Hotbar + Main Storage).
+    /// Indices 0-8 represent the Hotbar.
+    /// </summary>
     public ItemStack[] Slots { get; }
 
     public int SelectedSlotIndex

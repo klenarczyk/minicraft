@@ -1,10 +1,14 @@
 ﻿using Minicraft.Engine.Graphics.Core;
 using Minicraft.Game.Ecs.Components;
+using Minicraft.Game.Ecs.Entities;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace Minicraft.Game.Ecs.Systems;
 
+/// <summary>
+/// Processes player input.
+/// </summary>
 public class InputSystem
 {
     private bool _wasSpaceDown;
@@ -12,6 +16,10 @@ public class InputSystem
     private float _currentRunTime;
     private const float DoubleTapThreshold = 0.25f;
 
+    /// <summary>
+    /// Updates the player's state based on input.
+    /// </summary>
+    /// <param name="deltaTime">Delta time in seconds.</param>
     public void Update(Entity player, Camera camera, KeyboardState keyboard, float deltaTime)
     {
         var vel = player.GetComponent<VelocityComponent>();
@@ -20,7 +28,7 @@ public class InputSystem
 
         _currentRunTime += deltaTime;
 
-        // Movement
+        // --- Movement ---
         var isSpaceDown = keyboard.IsKeyDown(Keys.Space);
 
         if (isSpaceDown && !_wasSpaceDown)
@@ -62,7 +70,7 @@ public class InputSystem
 
         _wasSpaceDown = isSpaceDown;
 
-        // Hotbar
+        // --- Hotbar ---
         if (keyboard.IsKeyDown(Keys.D1)) inv.SelectedSlotIndex = 0;
         if (keyboard.IsKeyDown(Keys.D2)) inv.SelectedSlotIndex = 1;
         if (keyboard.IsKeyDown(Keys.D3)) inv.SelectedSlotIndex = 2;

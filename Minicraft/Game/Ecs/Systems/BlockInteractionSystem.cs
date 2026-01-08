@@ -1,6 +1,7 @@
 ﻿using Minicraft.Engine.Graphics.Core;
 using Minicraft.Game.Data;
 using Minicraft.Game.Ecs.Components;
+using Minicraft.Game.Ecs.Entities;
 using Minicraft.Game.Items.ItemTypes;
 using Minicraft.Game.Registries;
 using Minicraft.Game.World;
@@ -9,11 +10,20 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace Minicraft.Game.Ecs.Systems;
 
+/// <summary>
+/// Handles player interaction with blocks in the world.
+/// </summary>
+/// <param name="world">The world manager for block manipulation.</param>
+/// <param name="raycaster">The raycaster for block targeting.</param>
 public class BlockInteractionSystem(WorldManager world, Raycaster raycaster)
 {
     private float _timeSinceLastInteraction;
     private const float ActionCooldown = 0.2f;
 
+    /// <summary>
+    /// Updates the block state based on player input, respecting a cooldown period.
+    /// </summary>
+    /// <param name="deltaTime">Delta time in seconds.</param>
     public void Update(Entity player, Camera camera, MouseState? mouse, float deltaTime)
     {
         var targeting = player.GetComponent<TargetingComponent>();

@@ -3,9 +3,9 @@ using Minicraft.Engine.Graphics.Resources;
 using Minicraft.Game.Data;
 using Minicraft.Game.Ecs;
 using Minicraft.Game.Ecs.Components;
+using Minicraft.Game.Ecs.Entities;
+using Minicraft.Game.Ecs.Entities.Blueprints;
 using Minicraft.Game.Ecs.Systems;
-using Minicraft.Game.Items.ItemTypes;
-using Minicraft.Game.Registries;
 using Minicraft.Game.Rendering;
 using Minicraft.Game.Ui;
 using Minicraft.Game.World;
@@ -21,18 +21,17 @@ public class GameSession : IDisposable
 {
     private readonly GameWindow _window;
 
-    public WorldManager World { get; private set; }
-    public Camera Camera { get; private set; }
+    public WorldManager World { get; }
+    public EntityManager Entities { get; }
+    public Camera Camera { get; }
     private readonly Shader _shader;
 
-    private Entity _player;
+    private readonly Entity _player;
     private readonly InputSystem _inputSystem;
     private readonly PhysicsSystem _physicsSystem;
     private readonly InventorySystem _inventorySystem;
     private readonly BlockInteractionSystem _interactionSystem;
-    private InventoryComponent _playerInventory;
 
-    private readonly Raycaster _raycaster;
     private RaycastResult _currentHit = new() { Hit = false };
     private readonly BlockOutline _outline;
     private readonly HudManager _hudManager;
@@ -47,40 +46,30 @@ public class GameSession : IDisposable
         var startingPos = new GlobalPos(0.0, 50.0, 0.0);
         World = new WorldManager(startingPos);
         _shader = new Shader("Default.vert", "Default.frag");
+
+        Entities = new EntityManager();
         Camera = new Camera(_window.Size.X, _window.Size.Y);
 
-        _raycaster = new Raycaster(World);
+        var raycaster = new Raycaster(World);
         _outline = new BlockOutline();
         _hudManager = new HudManager(_window.Size.X, _window.Size.Y);
-
-        SetupPlayer(startingPos);
 
         _inputSystem = new InputSystem();
         _physicsSystem = new PhysicsSystem(World);
         _inventorySystem = new InventorySystem();
-        _interactionSystem = new BlockInteractionSystem(World, _raycaster);
+        _interactionSystem = new BlockInteractionSystem(World, raycaster);
+
+        _player = Entities.Spawn<PlayerBlueprint>(startingPos);
 
         // TEMP: Starter Blocks
         PopulateInventory();
-    }
-
-    private void SetupPlayer(GlobalPos startPos)
-    {
-        _player = new Entity();
-        _player.AddComponent(new PositionComponent { Position = startPos });
-        _player.AddComponent(new VelocityComponent());
-        _player.AddComponent(new PhysicsComponent());
-        _player.AddComponent(new TargetingComponent());
-
-        _playerInventory = new InventoryComponent();
-        _player.AddComponent(_playerInventory);
     }
 
     // TEMP: Method to add some blocks to the player's inventory for testing
     private void PopulateInventory()
     {
         for (ushort i = 1; i <= 5; i++)
-            _inventorySystem.AddToInventory(_playerInventory, new ItemStack(i, 5));
+            _inventorySystem.AddToInventory(_player.GetComponent<InventoryComponent>(), new ItemStack(i, 5));
     }
 
     public void Update(float dt, KeyboardState keyboard, MouseState mouse)
@@ -89,8 +78,11 @@ public class GameSession : IDisposable
         if (keyboard.IsKeyPressed(Keys.F4)) _wireframeEnabled = !_wireframeEnabled;
         if (keyboard.IsKeyPressed(Keys.F5)) { _freezeFrustum = !_freezeFrustum; Console.WriteLine($"Frustum: {!_freezeFrustum}"); }
 
+        Entities.Flush();
+
         HandleHotbar(mouse);
 
+        // TODO: Iterate Systems over all entities, not just the player
         Camera.InputController(mouse);
         _inputSystem.Update(_player, Camera, keyboard, dt);
         _physicsSystem.Update(_player, dt);
@@ -130,7 +122,7 @@ public class GameSession : IDisposable
         }
 
         // UI Pass
-        _hudManager.Draw(_playerInventory, _window.Size.X, _window.Size.Y);
+        _hudManager.Draw(_player.GetComponent<InventoryComponent>(), _window.Size.X, _window.Size.Y);
     }
 
     public void Resize(int width, int height)
@@ -145,7 +137,7 @@ public class GameSession : IDisposable
         if (mouse.ScrollDelta.Y == 0) return;
         
         var dir = mouse.ScrollDelta.Y > 0 ? -1 : 1;
-        _inventorySystem.ScrollHotbar(_playerInventory, dir);
+        _inventorySystem.ScrollHotbar(_player.GetComponent<InventoryComponent>(), dir);
     }
 
     public void Dispose()

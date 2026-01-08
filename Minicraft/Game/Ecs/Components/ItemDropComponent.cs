@@ -1,6 +1,6 @@
 ﻿namespace Minicraft.Game.Ecs.Components;
 
-public class ItemDropComponent
+public class ItemDropComponent : IComponent
 {
     
 }

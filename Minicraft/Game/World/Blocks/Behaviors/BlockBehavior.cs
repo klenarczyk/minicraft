@@ -1,5 +1,6 @@
 ﻿using Minicraft.Game.Data;
 using Minicraft.Game.Ecs;
+using Minicraft.Game.Ecs.Entities;
 
 namespace Minicraft.Game.World.Blocks.Behaviors;
 

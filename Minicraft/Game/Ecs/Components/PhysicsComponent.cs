@@ -2,8 +2,14 @@
 
 namespace Minicraft.Game.Ecs.Components;
 
-public class PhysicsComponent
+/// <summary>
+/// Defines physical properties for movement and collision.
+/// </summary>
+public class PhysicsComponent : IComponent
 {
+    /// <summary>
+    /// The dimensions of the entity's bounding box (Width, Height, Depth) in Blocks.
+    /// </summary>
     public Vector3 Size { get; set; } = new(0.6f, 1.8f, 0.6f);
 
     public bool IsGrounded { get; set; } = false;
