@@ -3,6 +3,7 @@ using Minicraft.Engine.Graphics.Buffers;
 using Minicraft.Engine.Graphics.Resources;
 using Minicraft.Game.Data;
 using Minicraft.Game.Registries;
+using Minicraft.Game.World.Generation;
 using Minicraft.Game.World.Meshing;
 using Minicraft.Vendor;
 using OpenTK.Graphics.OpenGL4;
@@ -13,7 +14,7 @@ namespace Minicraft.Game.World.Chunks;
 public class Chunk(ChunkPos position)
 {
     public readonly ChunkPos Position = position;
-    private readonly ushort[] _blocks = new ushort[Size * Size * Height];
+    private readonly BlockId[] _blocks = new BlockId[Size * Size * Height];
 
     // Data calculated by worker threads
     private readonly List<Vector3> _vertices = [];
@@ -36,10 +37,9 @@ public class Chunk(ChunkPos position)
     public readonly Lock MeshGenLock = new();
     public bool MeshGenerationRequested { get; set; }
 
-    public void GenerateData()
+    public void GenerateData(WorldGenerator generator)
     {
-        var heightMap = GenerateHeightmap();
-        GenerateBlocks(heightMap);
+        generator.GenerateChunk(this);
         IsDataGenerated = true;
     }
 
@@ -92,62 +92,6 @@ public class Chunk(ChunkPos position)
         IsActive = true;
     }
 
-    private int[,] GenerateHeightmap()
-    {
-        var heightmap = new int[Size, Size];
-
-        var noise = new FastNoiseLite();
-        noise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
-        noise.SetFrequency(0.01f);
-
-        const int baseHeight = 20;
-        const int amplitude = 5;
-
-        for (var x = 0; x < Size; x++)
-        for (var z = 0; z < Size; z++)
-        {
-            var rawNoise = noise.GetNoise(Position.X + x, Position.Z + z);
-            heightmap[x, z] = (int)(baseHeight + rawNoise * amplitude);
-        }
-        return heightmap;
-    }
-
-    private void GenerateBlocks(int[,] heightMap)
-    {
-        try
-        {
-            var bedrockId = BlockRegistry.GetId("bedrock");
-            var stoneId = BlockRegistry.GetId("stone");
-            var dirtId = BlockRegistry.GetId("dirt_block");
-            var grassId = BlockRegistry.GetId("grass_block");
-
-            for (var x = 0; x < Size; x++)
-            for (var z = 0; z < Size; z++)
-            {
-                var columnHeight = heightMap[x, z];
-                for (var y = 0; y < Height; y++)
-                {
-                    ushort blockId = 0;
-
-                    if (y == 0)
-                        blockId = bedrockId;
-                    else if (y < columnHeight - 4)
-                        blockId = stoneId;
-                    else if (y < columnHeight - 1)
-                        blockId = dirtId;
-                    else if (y == columnHeight - 1)
-                        blockId = grassId;
-
-                    SetBlock(x, y, z, blockId);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"An error occurred while generating blocks: {ex.Message}");
-        }
-    }
-
     private void GenerateFaces(Chunk west, Chunk east, Chunk north, Chunk south)
     {
         for (var x = 0; x < Size; x++)
@@ -169,7 +113,7 @@ public class Chunk(ChunkPos position)
     {
         if (neighborY is < 0 or >= Height) return true;
 
-        ushort neighborId;
+        BlockId neighborId;
 
         if (neighborX is >= 0 and < Size && neighborZ is >= 0 and < Size)
         {
@@ -249,7 +193,7 @@ public class Chunk(ChunkPos position)
     {
         if (y is < 0 or >= Height) return false;
 
-        ushort blockId;
+        BlockId blockId;
 
         if (x is >= 0 and < Size && z is >= 0 and < Size)
         {
@@ -356,12 +300,12 @@ public class Chunk(ChunkPos position)
         return 1.0f - occlusion * 0.25f;
     }
 
-    public ushort GetBlock(int x, int y, int z)
+    public BlockId GetBlock(int x, int y, int z)
     {
         return _blocks[GetIndex(x, y, z)];
     }
 
-    public void SetBlock(int x, int y, int z, ushort type)
+    public void SetBlock(int x, int y, int z, BlockId type)
     {
         if (y is < 0 or >= Height) return;
         _blocks[GetIndex(x, y, z)] = type;

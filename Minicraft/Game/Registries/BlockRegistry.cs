@@ -9,9 +9,9 @@ namespace Minicraft.Game.Registries;
 
 public static class BlockRegistry
 {
-    private static readonly Block[] Blocks = new Block[ushort.MaxValue];
-    private static readonly Dictionary<string, ushort> NameToId = new();
-    private static ushort _nextId = 1; // Reserve 0 for air
+    private static readonly Block[] Blocks = new Block[BlockId.MaxValue];
+    private static readonly Dictionary<string, BlockId> NameToId = new();
+    private static BlockId _nextId = 1; // Reserve 0 for air
 
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
@@ -22,7 +22,7 @@ public static class BlockRegistry
         LoadAllBlocks();
     }
 
-    public static Block Get(ushort id)
+    public static Block Get(BlockId id)
     {
         if (id >= Blocks.Length || Blocks[id] == null)
             return Blocks[0];
@@ -30,7 +30,7 @@ public static class BlockRegistry
         return Blocks[id];
     }
 
-    public static bool TryGet(ushort id, out Block block)
+    public static bool TryGet(BlockId id, out Block block)
     {
         if (id >= _nextId)
         {
@@ -42,9 +42,9 @@ public static class BlockRegistry
         return true;
     }
 
-    public static ushort GetId(string name)
+    public static BlockId GetId(string name)
     {
-        return NameToId.GetValueOrDefault($"block:{name.ToLower()}", (ushort)0);
+        return NameToId.GetValueOrDefault($"block:{name.ToLower()}",0);
     }
 
     private static void Register(string name, Block def)
@@ -52,7 +52,7 @@ public static class BlockRegistry
         var key = $"block:{name.ToLower()}";
         if (NameToId.ContainsKey(key)) return;
 
-        var id = name == "air" ? (ushort)0 : _nextId++;
+        var id = name == "air" ? (BlockId)0 : _nextId++;
 
         NameToId[key] = id;
         Blocks[id] = def;

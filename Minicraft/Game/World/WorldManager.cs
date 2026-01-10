@@ -5,6 +5,7 @@ using Minicraft.Game.Data;
 using Minicraft.Game.World.Chunks;
 using OpenTK.Mathematics;
 using System.Collections.Concurrent;
+using Minicraft.Game.World.Generation;
 using OpenTK.Graphics.OpenGL4;
 
 namespace Minicraft.Game.World;
@@ -15,6 +16,8 @@ public class WorldManager : IDisposable
     private readonly ConcurrentQueue<Chunk> _uploadQueue = new();
     private readonly ConcurrentDictionary<ChunkPos, bool> _chunksProcessingData = new();
 
+    private readonly WorldGenerator _worldGenerator;
+
     private const int RenderDistance = 8;
     private const int LoadDistance = RenderDistance + 1;
 
@@ -23,6 +26,8 @@ public class WorldManager : IDisposable
 
     public WorldManager(GlobalPos startingPos)
     {
+        // TODO: Add world seed support
+        _worldGenerator = new WorldGenerator(1337);
         _lastChunkCoords = new ChunkPos(int.MaxValue, int.MaxValue);
 
         _chunkUpdatePattern = GenerateChunkUpdatePattern(LoadDistance);
@@ -101,7 +106,7 @@ public class WorldManager : IDisposable
         {
             try
             {
-                newChunk.GenerateData();
+                newChunk.GenerateData(_worldGenerator);
                 _activeChunks.TryAdd(chunkCoords, newChunk);
 
                 CheckAndRequestMesh(chunkCoords);
@@ -217,7 +222,7 @@ public class WorldManager : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    public ushort GetBlockAt(BlockPos position)
+    public BlockId GetBlockAt(BlockPos position)
     {
         var chunkCoords = BlockToChunkCoords(position);
         if (!_activeChunks.TryGetValue(chunkCoords, out var chunk))
@@ -234,7 +239,7 @@ public class WorldManager : IDisposable
         return chunk.GetBlock(localX, localY, localZ);
     }
 
-    public void SetBlockAt(BlockPos position, ushort block)
+    public void SetBlockAt(BlockPos position, BlockId block)
     {
         var chunkCoords = BlockToChunkCoords(position);
         if (!_activeChunks.TryGetValue(chunkCoords, out var chunk))

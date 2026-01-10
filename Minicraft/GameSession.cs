@@ -68,7 +68,7 @@ public class GameSession : IDisposable
     // TEMP: Method to add some blocks to the player's inventory for testing
     private void PopulateInventory()
     {
-        for (ushort i = 1; i <= 5; i++)
+        for (BlockId i = 1; i <= 6; i++)
             _inventorySystem.AddToInventory(_player.GetComponent<InventoryComponent>(), new ItemStack(i, 5));
     }
 
