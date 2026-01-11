@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using Minicraft.Game.Data;
+using Minicraft.Game.Data.Schemas;
 using Minicraft.Game.World.Blocks;
 using Minicraft.Game.World.Blocks.Behaviors;
 using Minicraft.Game.World.Meshing;
@@ -73,7 +74,7 @@ public static class BlockRegistry
                 var json = File.ReadAllText(file);
                 var name = Path.GetFileNameWithoutExtension(file);
 
-                var data = JsonSerializer.Deserialize<BlockStatsJson>(json, JsonOptions);
+                var data = JsonSerializer.Deserialize<BlockJson>(json, JsonOptions);
 
                 var behavior = GetBehaviorFromString(data.Behavior);
                 var uvs = LoadModelUvs(name);
@@ -98,6 +99,7 @@ public static class BlockRegistry
         return behaviorName switch
         {
             "Standard" => new StandardBlock(),
+            "Leaf" => new LeafBlock(),
             "Air" => new AirBlock(),
             _ => new StandardBlock()
         };

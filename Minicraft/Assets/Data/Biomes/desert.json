@@ -1,0 +1,8 @@
+{
+  "SurfaceBlock": "sand",
+  "SubSurfaceBlock": "sand",
+  "HeightMultiplier": 0.6,
+  "TreeDensity": 0.0,
+  "TargetTemp": 0.8,
+  "TargetHumidity": -0.5
+}

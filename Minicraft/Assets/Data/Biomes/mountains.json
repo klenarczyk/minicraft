@@ -1,0 +1,8 @@
+{
+  "SurfaceBlock": "stone",
+  "SubSurfaceBlock": "stone",
+  "HeightMultiplier": 3.0,
+  "TreeDensity": 0,
+  "TargetTemp": -0.8,
+  "TargetHumidity": 0.0
+}

@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using Minicraft.Game.Data;
+using Minicraft.Game.Data.Schemas;
 using Minicraft.Game.Items;
 using Minicraft.Game.Items.ItemTypes;
 
@@ -76,7 +77,7 @@ public static class ItemRegistry
             try
             {
                 var json = File.ReadAllText(file);
-                var data = JsonSerializer.Deserialize<ItemStatsJson>(json, JsonOptions);
+                var data = JsonSerializer.Deserialize<ItemJson>(json, JsonOptions);
 
                 if (data == null) continue;
 

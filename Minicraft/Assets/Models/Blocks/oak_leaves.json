@@ -1,6 +1,6 @@
 {
   "parent": "cube_all",
   "textures": {
-    "all": "dirt_block"
+    "all": "oak_leaves"
   }
 }

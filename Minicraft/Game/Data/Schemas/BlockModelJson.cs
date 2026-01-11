@@ -1,4 +1,4 @@
-﻿namespace Minicraft.Game.Data;
+﻿namespace Minicraft.Game.Data.Schemas;
 
 public class BlockModelJson
 {

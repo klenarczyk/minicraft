@@ -1,0 +1,8 @@
+{
+  "SurfaceBlock": "grass_block",
+  "SubSurfaceBlock": "dirt",
+  "HeightMultiplier": 1.2,
+  "TreeDensity": 0.05,
+  "TargetTemp": 0.0,
+  "TargetHumidity": 0.8
+}

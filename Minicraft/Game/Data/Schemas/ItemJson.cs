@@ -1,6 +1,6 @@
-﻿namespace Minicraft.Game.Data;
+﻿namespace Minicraft.Game.Data.Schemas;
 
-public class ItemStatsJson
+public class ItemJson
 {
     public string Id { get; set; }
     public int MaxStackSize { get; set; } = 64;

@@ -1,6 +1,6 @@
-﻿namespace Minicraft.Game.Data;
+﻿namespace Minicraft.Game.Data.Schemas;
 
-public class BlockStatsJson
+public class BlockJson
 {
     public string Behavior { get; set; } = "Standard";
 

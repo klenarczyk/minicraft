@@ -33,6 +33,7 @@
 	  <Folder Include="Game\Ui\Elements\" />
 	  <Folder Include="Game\World\Generation\" />
 	  <Folder Include="Game\World\Biomes\" />
+	  <Folder Include="Game\World\Structures\" />
 	</ItemGroup>
 
 </Project>

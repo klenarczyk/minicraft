@@ -2,38 +2,38 @@
 using Minicraft.Game.Registries;
 using Minicraft.Game.World.Biomes;
 using Minicraft.Game.World.Chunks;
+using Minicraft.Game.World.Structures;
 using Minicraft.Vendor;
 
 namespace Minicraft.Game.World.Generation;
 
 public class WorldGenerator
 {
-    public readonly int _seed;
+    public readonly int Seed;
 
     // Noise
     private readonly FastNoiseLite _heightNoise;
     private readonly FastNoiseLite _temperatureNoise;
     private readonly FastNoiseLite _humidityNoise;
-    
+
     // Underground blocks
     private readonly BlockId _stoneId;
     private readonly BlockId _bedrockId;
 
-    // Biomes TODO: Make this better
-    private Biome _plains;
-    private Biome _desert;
-    private Biome _mountains;
-    private Biome _forest;
+    // Constants
+    private const int SeaLevel = 40;
+    private const float BiomeFrequency = 0.005f;
+    private const int HeightAmplitude = 20;
 
     public WorldGenerator(int seed)
     {
-        _seed = seed;
+        Seed = seed;
 
         // Common block cache
         _stoneId = BlockRegistry.GetId("stone");
         _bedrockId = BlockRegistry.GetId("bedrock");
 
-        InitializeBiomes();
+        BiomeRegistry.Initialize();
 
         // Height noise
         _heightNoise = new FastNoiseLite(seed);
@@ -44,21 +44,13 @@ public class WorldGenerator
 
         // Temperature noise
         _temperatureNoise = new FastNoiseLite(seed + 1234);
-        _temperatureNoise.SetNoiseType(FastNoiseLite.NoiseType.Perlin);
-        _temperatureNoise.SetFrequency(0.005f); // Large zones
+        _temperatureNoise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
+        _temperatureNoise.SetFrequency(BiomeFrequency);
 
         // Humidity noise
         _humidityNoise = new FastNoiseLite(seed + 5678);
-        _humidityNoise.SetNoiseType(FastNoiseLite.NoiseType.Perlin);
-        _humidityNoise.SetFrequency(0.005f);
-    }
-
-    private void InitializeBiomes()
-    {
-        _plains = new Biome("Plains", "grass_block", "dirt_block", 1.0f);
-        _desert = new Biome("Desert", "sand", "sand", 0.8f);
-        _mountains = new Biome("Mountains", "stone", "stone", 2.5f);
-        _forest = new Biome("Forest", "grass_block", "dirt_block", 1.2f);
+        _humidityNoise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
+        _humidityNoise.SetFrequency(BiomeFrequency);
     }
 
     public void GenerateChunk(Chunk chunk)
@@ -66,6 +58,7 @@ public class WorldGenerator
         var chunkX = chunk.Position.X;
         var chunkZ = chunk.Position.Z;
 
+        // --- Terrain Generation ---
         for (var x = 0; x < Chunk.Size; x++)
         for (var z = 0; z < Chunk.Size; z++)
         {
@@ -75,29 +68,25 @@ public class WorldGenerator
             var temperature = _temperatureNoise.GetNoise(worldX, worldZ);
             var humidity = _humidityNoise.GetNoise(worldX, worldZ);
 
-            var currentBiome = GetBiome(temperature, humidity);
+            var currentBiome = BiomeRegistry.GetClosest(temperature, humidity);
 
             var rawHeight = _heightNoise.GetNoise(worldX, worldZ);
+            var height = (int)(SeaLevel + rawHeight * HeightAmplitude * currentBiome.HeightMultiplier);
 
-            // Base Height + (Noise * Amplitude * BiomeModifier)
-            var terrainHeight = (int)(40 + rawHeight * 20 * currentBiome.HeightMultiplier);
-
-            FillColumn(chunk, x, z, terrainHeight, currentBiome);
+            FillColumn(chunk, x, z, height, currentBiome);
         }
-    }
 
-    private Biome GetBiome(float temperature, float humidity)
-    {
-        if (temperature > 0.5 && humidity < 0)
-            return _desert;
+        // --- Decoration ---
+        for (var cx = -1; cx <= 1; cx++)
+        {
+            for (var cz = -1; cz <= 1; cz++)
+            {
+                var neighborChunkX = chunk.Position.X + (cx * Chunk.Size);
+                var neighborChunkZ = chunk.Position.Z + (cz * Chunk.Size);
 
-        if (temperature < -0.5)
-            return _mountains;
-
-        if (humidity > 0.5)
-            return _forest;
-
-        return _plains;
+                DecorateFromChunk(chunk, neighborChunkX, neighborChunkZ);
+            }
+        }
     }
 
     private void FillColumn(Chunk chunk, int x, int z, int height, Biome biome)
@@ -110,8 +99,8 @@ public class WorldGenerator
             }
             else if (y == height)
             {
-                chunk.SetBlock(x, z, y, biome.SurfaceBlock);
-            } 
+                chunk.SetBlock(x, y, z, biome.SurfaceBlock);
+            }
             else if (y > height - 4)
             {
                 chunk.SetBlock(x, y, z, biome.SubSurfaceBlock);
@@ -119,6 +108,31 @@ public class WorldGenerator
             else
             {
                 chunk.SetBlock(x, y, z, _stoneId);
+            }
+        }
+    }
+
+    private void DecorateFromChunk(Chunk targetChunk, int originChunkWorldX, int originChunkWorldZ)
+    {
+        var random = new Random((originChunkWorldX * 73856093) ^ (originChunkWorldZ * 19349663) ^ Seed);
+
+        for (var x = 0; x < Chunk.Size; x++)
+        for (var z = 0; z < Chunk.Size; z++)
+        {
+            var worldX = originChunkWorldX + x;
+            var worldZ = originChunkWorldZ + z;
+
+            var temp = _temperatureNoise.GetNoise(worldX, worldZ);
+            var hum = _humidityNoise.GetNoise(worldX, worldZ);
+            var biome = BiomeRegistry.GetClosest(temp, hum);
+
+            if (random.NextDouble() < biome.TreeDensity)
+            {
+                var rawHeight = _heightNoise.GetNoise(worldX, worldZ);
+                var y = (int)(40 + (rawHeight * 20 * biome.HeightMultiplier)) + 1;
+
+                if (y < Chunk.Height - 10)
+                    TreeBuilder.GrowTree(targetChunk, worldX, y, worldZ);
             }
         }
     }
