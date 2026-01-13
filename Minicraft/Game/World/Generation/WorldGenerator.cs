@@ -72,6 +72,7 @@ public class WorldGenerator
 
             var rawHeight = _heightNoise.GetNoise(worldX, worldZ);
             var height = (int)(SeaLevel + rawHeight * HeightAmplitude * currentBiome.HeightMultiplier);
+            height = Math.Max(0, height);
 
             FillColumn(chunk, x, z, height, currentBiome);
         }
@@ -129,7 +130,7 @@ public class WorldGenerator
             if (random.NextDouble() < biome.TreeDensity)
             {
                 var rawHeight = _heightNoise.GetNoise(worldX, worldZ);
-                var y = (int)(40 + (rawHeight * 20 * biome.HeightMultiplier)) + 1;
+                var y = (int)(40 + rawHeight * 20 * biome.HeightMultiplier) + 1;
 
                 if (y < Chunk.Height - 10)
                     TreeBuilder.GrowTree(targetChunk, worldX, y, worldZ);

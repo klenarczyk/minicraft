@@ -5,6 +5,7 @@ using Minicraft.Game.Data;
 using Minicraft.Game.World.Chunks;
 using OpenTK.Mathematics;
 using System.Collections.Concurrent;
+using Minicraft.Engine.Diagnostics;
 using Minicraft.Game.World.Generation;
 using OpenTK.Graphics.OpenGL4;
 
@@ -115,9 +116,9 @@ public class WorldManager : IDisposable
                 CheckAndRequestMesh(chunkCoords + new ChunkPos(0, -1));
                 CheckAndRequestMesh(chunkCoords + new ChunkPos(0, 1));
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                Console.WriteLine($"Error generating chunk at {chunkCoords}: {e.Message}");
+                Logger.Error($"Error generating chunk at {chunkCoords}", ex);
                 _activeChunks.TryRemove(chunkCoords, out _);
             }
             finally
@@ -156,9 +157,9 @@ public class WorldManager : IDisposable
                 chunk.GenerateMesh(west, east, north, south);
                 _uploadQueue.Enqueue(chunk);
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                Console.WriteLine($"Mesh generation failed at {chunkCoords}: {e.Message}\n{e.StackTrace}");
+                Logger.Error($"Error generating mesh for chunk at {chunkCoords}", ex);
 
                 lock (chunk.MeshGenLock)
                 {
@@ -176,7 +177,7 @@ public class WorldManager : IDisposable
         {
             chunk.UploadMesh();
 
-            if (stopwatch.ElapsedMilliseconds > 4)
+            if (stopwatch.ElapsedMilliseconds > 10)
                 break;
         }
     }
