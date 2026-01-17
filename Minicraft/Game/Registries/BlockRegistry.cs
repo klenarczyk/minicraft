@@ -1,10 +1,11 @@
-﻿using System.Text.Json;
+﻿using Minicraft.Engine.Diagnostics;
 using Minicraft.Game.Data;
 using Minicraft.Game.Data.Schemas;
 using Minicraft.Game.World.Blocks;
 using Minicraft.Game.World.Blocks.Behaviors;
 using Minicraft.Game.World.Meshing;
 using OpenTK.Mathematics;
+using System.Text.Json;
 
 namespace Minicraft.Game.Registries;
 
@@ -18,6 +19,8 @@ public static class BlockRegistry
 
     public static void Initialize()
     {
+        Logger.Info("[BlockRegistry] Initializing");
+
         var airBehavior = new AirBlock();
         Register("air", new Block(airBehavior, 0, 0, new Dictionary<BlockFace, Vector4>(), []));
         LoadAllBlocks();
@@ -84,7 +87,7 @@ public static class BlockRegistry
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failed to load block {file}: {ex.Message}");
+                Logger.Error($"[BlockRegistry] Failed to load block {file}: {ex.Message}");
             }
         }
     }
@@ -112,7 +115,7 @@ public static class BlockRegistry
 
         if (!File.Exists(modelPath))
         {
-            Console.WriteLine($"Warning: No model found for {name}.");
+            Logger.Warn($"[BlockRegistry] No model found for {name}.");
             return GetDefaultFaces();
         }
 

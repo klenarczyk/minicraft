@@ -13,7 +13,6 @@ try
 catch (Exception ex)
 {
     Logger.Error("CRITICAL FAILURE: The game crashed!", ex);
-    throw;
 }
 finally
 {

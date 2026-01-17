@@ -1,6 +1,6 @@
 ﻿using Minicraft.Game.Data;
 using Minicraft.Game.Registries;
-using Minicraft.Game.World.Chunks;
+using Minicraft.Game.World.Generation;
 
 namespace Minicraft.Game.World.Structures;
 

@@ -1,6 +1,6 @@
-﻿using Minicraft.Engine.Graphics.Atlasing;
+﻿using Minicraft.Engine.Diagnostics;
+using Minicraft.Engine.Graphics.Atlasing;
 using Minicraft.Game.Registries;
-using Minicraft.Game.World.Blocks; // Needed for Block class
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
@@ -8,16 +8,18 @@ namespace Minicraft.Engine.Graphics.Resources;
 
 public class ResourceManager
 {
-    private Shader _iconShader;
+    private Shader? _iconShader;
 
     public void Initialize(string assetsPath)
     {
+        Logger.Info($"[ResourceManager] Initializing Resources from: {assetsPath}");
+
         var manifest = new AssetManifest();
         manifest.ScanFolder(assetsPath);
+        Logger.Info($"[ResourceManager]  Manifest loaded. Found {manifest.BlockTextures.Count} block textures.");
 
         // Block Textures
-        Console.WriteLine("[Resources] Stitching Terrain Atlas...");
-
+        Logger.Info("[ResourceManager] Stitching Terrain Atlas."); ;
         var blockStitch = TextureStitcher.CreateTerrainAtlas(manifest.BlockTextures);
         var blockAtlas = new Texture2D(blockStitch.AtlasImage);
 
@@ -27,18 +29,19 @@ public class ResourceManager
         }
 
         // Block Registry
-        Console.WriteLine("[Resources] Initializing Block Definitions...");
+        Logger.Info("[ResourceManager] Stitching Terrain Atlas.");
         BlockRegistry.Initialize();
 
         // Icon Generation
-        Console.WriteLine("[Resources] Generating Block Icons...");
-
-        _iconShader = new Shader("Icon.vert", "Icon.frag");
+        Logger.Info("[ResourceManager] Generating Block Icons.");
         var itemSources = new Dictionary<string, Image<Rgba32>>();
-
-        using (var iconGen = new IconGenerator(_iconShader))
+        try
         {
+            _iconShader = new Shader("Icon.vert", "Icon.frag");
+
+            using var iconGen = new IconGenerator(_iconShader);
             ushort currentId = 1;
+            var iconCount = 0;
             while (BlockRegistry.TryGet(currentId, out var block))
             {
                 if (block.InternalName == "block:air")
@@ -53,14 +56,22 @@ public class ResourceManager
                 itemSources.Add(simpleName, iconImage);
 
                 currentId++;
+                iconCount++;
             }
+            Logger.Debug($"[ResourceManager] Generated {iconCount} block icons.");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("[ResourceManager] Failed to generate block icons.", ex);
+            throw;
+        }
+        finally
+        {
+            _iconShader?.Dispose();
         }
 
-        _iconShader.Dispose();
-
         // Item Textures
-        Console.WriteLine("[Resources] Stitching Item Atlas...");
-
+        Logger.Info("[ResourceManager] Stitching Item Atlas.");
         foreach (var path in manifest.ItemTextures)
         {
             var name = Path.GetFileNameWithoutExtension(path);
@@ -82,6 +93,7 @@ public class ResourceManager
         itemSources.Clear();
 
         // UI Phase
+        Logger.Info("[ResourceManager] Stitching UI Atlas.");
         var uiSources = new Dictionary<string, Image<Rgba32>>();
         foreach (var path in manifest.GuiTextures)
         {
@@ -105,6 +117,6 @@ public class ResourceManager
         itemStitch.AtlasImage.Dispose();
         guiStitch.AtlasImage.Dispose();
 
-        Console.WriteLine("[Resources] Initialization Complete.");
+        Logger.Info("[ResourceManager] Resource Initialization Complete.");
     }
 }

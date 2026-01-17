@@ -57,7 +57,7 @@ public class PhysicsSystem(WorldManager world)
         entityBox = entityBox.Offset(new Vector3(0, 0, moveZ));
 
         // --- State Updates ---
-        var hitFloor = intendedMove.Y < 0 && moveY > intendedMove.Y;
+        var hitFloor = intendedMove.Y < 0 && MathF.Abs(moveY - intendedMove.Y) > 1e-5f;
         phys.IsGrounded = hitFloor;
 
         if (hitFloor) phys.IsFlying = false;

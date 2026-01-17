@@ -14,6 +14,11 @@ public readonly struct BlockPos(int x, int y, int z) : IEquatable<BlockPos>
         return obj is BlockPos other && Equals(other);
     }
 
+    public override string ToString()
+    {
+        return $"X: {X}, Y: {Y}, Z: {Z}";
+    }
+
     public override int GetHashCode()
     {
         return HashCode.Combine(X, Y, Z);

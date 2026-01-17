@@ -16,6 +16,11 @@ public readonly struct ChunkPos(int x, int z) : IEquatable<ChunkPos>
         return obj is ChunkPos other && Equals(other);
     }
 
+    public override string ToString()
+    {
+        return $"X: {X}, Z: {Z}";
+    }
+
     public override int GetHashCode()
     {
         return HashCode.Combine(X, Z);

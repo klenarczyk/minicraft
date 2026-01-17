@@ -19,4 +19,9 @@ public struct GlobalPos(double x, double y, double z)
 
     public static explicit operator GlobalPos(Vector3 pos) => new(pos.X, pos.Y, pos.Z);
     public static explicit operator Vector3(GlobalPos pos) => new((float)pos.X, (float)pos.Y, (float)pos.Z);
+
+    public override string ToString()
+    {
+        return $"X: {X}, Y: {Y}, Z: {Z}";
+    }
 }

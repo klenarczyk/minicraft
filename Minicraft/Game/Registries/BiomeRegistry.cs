@@ -1,7 +1,7 @@
 ﻿using System.Text.Json;
 using Minicraft.Engine.Diagnostics;
 using Minicraft.Game.Data.Schemas;
-using Minicraft.Game.World.Biomes;
+using Minicraft.Game.World.Generation;
 
 namespace Minicraft.Game.Registries;
 
@@ -13,6 +13,8 @@ public static class BiomeRegistry
 
     public static void Initialize()
     {
+        Logger.Info("[BiomeRegistry] Initializing.");
+
         Biomes.Clear();
 
         var path = Path.Combine(AppContext.BaseDirectory, "Assets", "Data", "Biomes");
@@ -38,7 +40,7 @@ public static class BiomeRegistry
             }
             catch (Exception ex)
             {
-                Logger.Error($"Failed to load biome {file}", ex);
+                Logger.Error($"[BiomeRegistry] Failed to load biome {file}", ex);
             }
         }
 

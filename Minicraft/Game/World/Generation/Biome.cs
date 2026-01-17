@@ -1,7 +1,6 @@
 ﻿using Minicraft.Game.Data;
-using Minicraft.Game.Registries;
 
-namespace Minicraft.Game.World.Biomes;
+namespace Minicraft.Game.World.Generation;
 
 public class Biome
 {

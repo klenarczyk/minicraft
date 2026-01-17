@@ -1,15 +1,12 @@
-﻿using Minicraft.Engine.Graphics;
-using Minicraft.Engine.Graphics.Buffers;
+﻿using Minicraft.Engine.Graphics.Buffers;
 using Minicraft.Engine.Graphics.Resources;
 using Minicraft.Game.Data;
 using Minicraft.Game.Registries;
-using Minicraft.Game.World.Generation;
 using Minicraft.Game.World.Meshing;
-using Minicraft.Vendor;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 
-namespace Minicraft.Game.World.Chunks;
+namespace Minicraft.Game.World.Generation;
 
 public class Chunk(ChunkPos position)
 {
@@ -194,7 +191,6 @@ public class Chunk(ChunkPos position)
         if (y is < 0 or >= Height) return false;
 
         BlockId blockId;
-
         if (x is >= 0 and < Size && z is >= 0 and < Size)
         {
             blockId = GetBlock(x, y, z);
@@ -290,7 +286,24 @@ public class Chunk(ChunkPos position)
         var side1 = IsBlockSolid(x + x1, y + y1, z + z1, west, east, north, south);
         var side2 = IsBlockSolid(x + x2, y + y2, z + z2, west, east, north, south);
 
-        var corner = IsBlockSolid(x + x1 + x2, y + y1 + y2, z + z1 + z2, west, east, north, south);
+        var cX = x1 + x2;
+        var cY = y1 + y2;
+        var cZ = z1 + z2;
+
+        switch (blockFace)
+        {
+            case BlockFace.Left or BlockFace.Right:
+                cX /= 2;
+                break;
+            case BlockFace.Bottom or BlockFace.Top:
+                cY /= 2;
+                break;
+            case BlockFace.Front or BlockFace.Back:
+                cZ /= 2;
+                break;
+        }
+
+        var corner = IsBlockSolid(x + cX, y + cY, z + cZ, west, east, north, south);
 
         var occlusion = 0;
         if (side1) occlusion++;

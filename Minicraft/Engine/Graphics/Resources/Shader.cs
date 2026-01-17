@@ -1,4 +1,5 @@
-﻿using OpenTK.Graphics.OpenGL4;
+﻿using Minicraft.Engine.Diagnostics;
+using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 
 namespace Minicraft.Engine.Graphics.Resources;
@@ -7,9 +8,13 @@ public class Shader : IDisposable
 {
     public readonly int Id;
     private bool _disposed;
+    private readonly string _name;
 
     public Shader(string vertexPath, string fragmentPath)
     {
+        _name = $"{vertexPath}/{fragmentPath}";
+        Logger.Debug($"[Shader] Compiling Shader: {_name}");
+
         Id = GL.CreateProgram();
 
         var vertex = CompileShader(ShaderType.VertexShader, vertexPath);
@@ -24,7 +29,7 @@ public class Shader : IDisposable
         if (success == 0)
         {
             var infoLog = GL.GetProgramInfoLog(Id);
-            Console.WriteLine($"Error linking shader program: {infoLog}");
+            Logger.Error($"[Shader] Linking Failed ({_name}):\n{infoLog}");
         }
 
         GL.DetachShader(Id, vertex);
@@ -41,7 +46,7 @@ public class Shader : IDisposable
     public void SetInt(string name, int value)
     {
         var location = GL.GetUniformLocation(Id, name);
-        if (location == -1) Console.WriteLine($"Warning: Uniform '{name}' not found in shader.");
+        if (location == -1) Logger.Warn($"[Shader] Uniform '{name}' not found in shader '{_name}'.");
         GL.Uniform1(location, value);
     }
 
@@ -74,6 +79,7 @@ public class Shader : IDisposable
         if (_disposed) return;
         GL.DeleteProgram(Id);
         _disposed = true;
+        Logger.Debug($"[Shader] Disposed: {_name}");
         GC.SuppressFinalize(this);
     }
 
@@ -83,11 +89,11 @@ public class Shader : IDisposable
         GL.ShaderSource(shader, LoadSource(path));
         GL.CompileShader(shader);
 
-        GL.GetShader(shader, ShaderParameter.CompileStatus, out int success);
+        GL.GetShader(shader, ShaderParameter.CompileStatus, out var success);
         if (success == 0)
         {
             var infoLog = GL.GetShaderInfoLog(shader);
-            Console.WriteLine($"Error compiling {type} at {path}: {infoLog}");
+            Logger.Error($"[Shader] Compilation Failed ({type} - {path}):\n{infoLog}");
         }
         return shader;
     }
@@ -95,8 +101,11 @@ public class Shader : IDisposable
     private static string LoadSource(string filePath)
     {
         var fullPath = Path.Combine(AppContext.BaseDirectory, "Assets", "Shaders", filePath);
-        return !File.Exists(fullPath) 
-            ? throw new FileNotFoundException($"Shader not found: {fullPath}") 
-            : File.ReadAllText(fullPath);
+        if (!File.Exists(fullPath))
+        {
+            Logger.Error($"[Shader] File missing: {fullPath}");
+            throw new FileNotFoundException($"Shader not found: {fullPath}");
+        }
+        return File.ReadAllText(fullPath);
     }
 }

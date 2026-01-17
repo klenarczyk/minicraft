@@ -2,7 +2,6 @@
 using Minicraft.Engine.Graphics.Core;
 using Minicraft.Engine.Graphics.Resources;
 using Minicraft.Game.Data;
-using Minicraft.Game.World.Chunks;
 using OpenTK.Mathematics;
 using System.Collections.Concurrent;
 using Minicraft.Engine.Diagnostics;
@@ -19,16 +18,17 @@ public class WorldManager : IDisposable
 
     private readonly WorldGenerator _worldGenerator;
 
-    private const int RenderDistance = 8;
+    private const int RenderDistance = 6;
     private const int LoadDistance = RenderDistance + 1;
 
     private readonly ChunkPos[] _chunkUpdatePattern;
     private ChunkPos _lastChunkCoords;
+    private const int Seed = 1337;
 
     public WorldManager(GlobalPos startingPos)
     {
-        // TODO: Add world seed support
-        _worldGenerator = new WorldGenerator(1337);
+        Logger.Info($"[WorldManager] Initializing WorldManager with Seed: {Seed}");
+        _worldGenerator = new WorldGenerator(Seed);
         _lastChunkCoords = new ChunkPos(int.MaxValue, int.MaxValue);
 
         _chunkUpdatePattern = GenerateChunkUpdatePattern(LoadDistance);
@@ -64,6 +64,7 @@ public class WorldManager : IDisposable
         var currentChunkCoords = WorldToChunkCoords(cameraPosition);
         if (currentChunkCoords == _lastChunkCoords) return;
 
+        // Logger.Debug($"[WorldManager] Player moved to chunk {currentChunkCoords.ToString()}");
         _lastChunkCoords = currentChunkCoords;
 
         List<ChunkPos> toRemove = [];
@@ -76,10 +77,14 @@ public class WorldManager : IDisposable
             }
         }
 
-        foreach (var coords in toRemove)
+        if (toRemove.Count > 0)
         {
-            if (_activeChunks.TryRemove(coords, out var chunk))
-                chunk.Delete();
+            // Logger.Debug($"[WorldManager] Unloading {toRemove.Count} chunks...");
+            foreach (var coords in toRemove)
+            {
+                if (_activeChunks.TryRemove(coords, out var chunk))
+                    chunk.Delete();
+            }
         }
 
         // Spawn generators
@@ -110,6 +115,8 @@ public class WorldManager : IDisposable
                 newChunk.GenerateData(_worldGenerator);
                 _activeChunks.TryAdd(chunkCoords, newChunk);
 
+                // Logger.Debug($"[WorldManager] Generated Chunk Data: {chunkCoords.X} {chunkCoords.Z}");
+
                 CheckAndRequestMesh(chunkCoords);
                 CheckAndRequestMesh(chunkCoords + new ChunkPos(-1, 0));
                 CheckAndRequestMesh(chunkCoords + new ChunkPos(1, 0));
@@ -118,7 +125,7 @@ public class WorldManager : IDisposable
             }
             catch (Exception ex)
             {
-                Logger.Error($"Error generating chunk at {chunkCoords}", ex);
+                Logger.Error($"[WorldManager] Failed to generate chunk at {chunkCoords.ToString()}", ex);
                 _activeChunks.TryRemove(chunkCoords, out _);
             }
             finally
@@ -159,7 +166,7 @@ public class WorldManager : IDisposable
             }
             catch (Exception ex)
             {
-                Logger.Error($"Error generating mesh for chunk at {chunkCoords}", ex);
+                Logger.Error($"[WorldManager] Failed to mesh chunk at {chunkCoords.ToString()}", ex);
 
                 lock (chunk.MeshGenLock)
                 {
@@ -172,14 +179,18 @@ public class WorldManager : IDisposable
     private void ProcessUploadQueue()
     {
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        var uploadedCount = 0;
 
         while (_uploadQueue.TryDequeue(out var chunk))
         {
             chunk.UploadMesh();
+            uploadedCount++;
 
-            if (stopwatch.ElapsedMilliseconds > 10)
-                break;
+            if (stopwatch.ElapsedMilliseconds > 10) break;
         }
+
+        //if (uploadedCount > 0)
+        //    Logger.Debug($"[WorldManager] Uploaded {uploadedCount} chunks to GPU");
     }
 
     private static ChunkPos[] GenerateChunkUpdatePattern(int distance)
@@ -215,6 +226,7 @@ public class WorldManager : IDisposable
 
     public void Dispose()
     {
+        Logger.Info("[WorldManager] Disposing.");
         foreach (var chunk in _activeChunks.Values)
         {
             chunk.Delete();
@@ -272,5 +284,7 @@ public class WorldManager : IDisposable
                 CheckAndRequestMesh(chunkCoords + new ChunkPos(0, 1));
                 break;
         }
+
+        Logger.Debug($"[WorldManager] Block Set: {position.ToString()} -> ID {block}");
     }
 }

@@ -1,7 +1,7 @@
-﻿using Minicraft.Engine.Graphics.Core;
+﻿using Minicraft.Engine.Diagnostics;
+using Minicraft.Engine.Graphics.Core;
 using Minicraft.Engine.Graphics.Resources;
 using Minicraft.Game.Data;
-using Minicraft.Game.Ecs;
 using Minicraft.Game.Ecs.Components;
 using Minicraft.Game.Ecs.Entities;
 using Minicraft.Game.Ecs.Entities.Blueprints;
@@ -44,6 +44,8 @@ public class GameSession : IDisposable
         _window = window;
 
         var startingPos = new GlobalPos(0.0, 50.0, 0.0);
+
+        Logger.Info("[GameSession] Initializing");
         World = new WorldManager(startingPos);
         _shader = new Shader("Default.vert", "Default.frag");
 
@@ -54,15 +56,18 @@ public class GameSession : IDisposable
         _outline = new BlockOutline();
         _hudManager = new HudManager(_window.Size.X, _window.Size.Y);
 
+        Logger.Info("[GameSession] Initializing Systems");
         _inputSystem = new InputSystem();
         _physicsSystem = new PhysicsSystem(World);
         _inventorySystem = new InventorySystem();
         _interactionSystem = new BlockInteractionSystem(World, raycaster);
 
+        Logger.Info($"[GameSession] Spawning Player at {startingPos.X} {startingPos.Y} {startingPos.Z}");
         _player = Entities.Spawn<PlayerBlueprint>(startingPos);
 
         // TEMP: Starter Blocks
         PopulateInventory();
+        Logger.Info("[GameSession] Initialization complete");
     }
 
     // TEMP: Method to add some blocks to the player's inventory for testing
@@ -74,12 +79,20 @@ public class GameSession : IDisposable
 
     public void Update(float dt, KeyboardState keyboard, MouseState mouse)
     {
-        // Debug
-        if (keyboard.IsKeyPressed(Keys.F4)) _wireframeEnabled = !_wireframeEnabled;
-        if (keyboard.IsKeyPressed(Keys.F5)) { _freezeFrustum = !_freezeFrustum; Console.WriteLine($"Frustum: {!_freezeFrustum}"); }
+        // Debug Toggles
+        if (keyboard.IsKeyPressed(Keys.F4))
+        {
+            _wireframeEnabled = !_wireframeEnabled;
+            Logger.Info($"[GameSession] Wireframe Mode: {_wireframeEnabled}");
+        }
+
+        if (keyboard.IsKeyPressed(Keys.F5))
+        {
+            _freezeFrustum = !_freezeFrustum;
+            Logger.Info($"[GameSession] Frustum Culling Frozen: {_freezeFrustum}");
+        }
 
         Entities.Flush();
-
         HandleHotbar(mouse);
 
         // TODO: Iterate Systems over all entities, not just the player
@@ -142,6 +155,7 @@ public class GameSession : IDisposable
 
     public void Dispose()
     {
+        Logger.Info("[GameSession] Disposing");
         World.Dispose();
         _shader.Dispose();
         _outline.Dispose();

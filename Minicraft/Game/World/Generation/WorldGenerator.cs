@@ -1,7 +1,5 @@
 ﻿using Minicraft.Game.Data;
 using Minicraft.Game.Registries;
-using Minicraft.Game.World.Biomes;
-using Minicraft.Game.World.Chunks;
 using Minicraft.Game.World.Structures;
 using Minicraft.Vendor;
 

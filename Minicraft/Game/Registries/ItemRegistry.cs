@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using Minicraft.Engine.Diagnostics;
 using Minicraft.Game.Data;
 using Minicraft.Game.Data.Schemas;
 using Minicraft.Game.Items;
@@ -16,7 +17,9 @@ public static class ItemRegistry
 
     public static void Initialize()
     {
-        Register("air", new Item("air", 0, new List<string>()));
+        Logger.Info("[ItemRegistry] Initializing");
+
+        Register("air", new Item("air", 0, []));
 
         // Block Items
         var allBlocks = BlockRegistry.GetAllBlocks();
@@ -54,7 +57,7 @@ public static class ItemRegistry
 
         if (NameToId.ContainsKey(key))
         {
-            Console.WriteLine($"[ItemRegistry] Warning: Duplicate registration attempt for {key}");
+            Logger.Warn($"[ItemRegistry] Duplicate registration attempt for {key}");
             return;
         }
 
@@ -86,7 +89,7 @@ public static class ItemRegistry
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[ItemRegistry] Failed to load {Path.GetFileName(file)}: {ex.Message}");
+                Logger.Warn($"[ItemRegistry] Failed to load {Path.GetFileName(file)}: {ex.Message}");
             }
         }
     }
