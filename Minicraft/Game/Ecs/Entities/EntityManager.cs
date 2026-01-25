@@ -1,5 +1,5 @@
-﻿using Minicraft.Game.Data;
-using Minicraft.Game.Ecs.Components;
+﻿using Minicraft.Game.Ecs.Components;
+using Minicraft.Game.World.Coordinates;
 
 namespace Minicraft.Game.Ecs.Entities;
 

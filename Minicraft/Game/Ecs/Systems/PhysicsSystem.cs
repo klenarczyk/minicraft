@@ -1,8 +1,9 @@
-﻿using Minicraft.Game.Data;
+﻿using Minicraft.Engine.Geometry;
 using Minicraft.Game.Ecs.Components;
 using Minicraft.Game.Ecs.Entities;
 using Minicraft.Game.Registries;
 using Minicraft.Game.World;
+using Minicraft.Game.World.Coordinates;
 using OpenTK.Mathematics;
 
 namespace Minicraft.Game.Ecs.Systems;

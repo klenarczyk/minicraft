@@ -3,14 +3,17 @@ using OpenTK.Mathematics;
 
 namespace Minicraft.Game.Items;
 
+/// <summary>
+/// Base definition for an interactive object in the player's inventory.
+/// </summary>
 public class Item
 {
+    // --- Identity ---
     public ushort Id { get; set; }
+    public string InternalName { get; set; }
 
-    public string InternalName { get; set; } = "item:air";
-
+    // --- Stats ---
     public int MaxStackSize { get; set; }
-
     private readonly HashSet<string> _tags;
 
     public Item(string simpleName, int maxStackSize, List<string> tags)
@@ -21,7 +24,7 @@ public class Item
     }
 
     /// <summary>
-    /// Fetches the current UV coordinates for this item from the Global Registry.
+    /// Fetches the current UV coordinates for this item's icon from the Global Registry.
     /// </summary>
     public Vector4 GetUvs()
     {

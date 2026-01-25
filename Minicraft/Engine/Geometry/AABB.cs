@@ -1,7 +1,12 @@
-﻿using OpenTK.Mathematics;
+﻿using Minicraft.Game.World.Coordinates;
+using OpenTK.Mathematics;
 
-namespace Minicraft.Game.Data;
+namespace Minicraft.Engine.Geometry;
 
+/// <summary>
+/// Axis-Aligned Bounding Box.
+/// Represents a non-rotated rectangular collision volume.
+/// </summary>
 public struct AABB(GlobalPos min, GlobalPos max)
 {
     public readonly GlobalPos Min = min;
@@ -10,7 +15,7 @@ public struct AABB(GlobalPos min, GlobalPos max)
     private const double Epsilon = 1e-4;
 
     /// <summary>
-    /// Create an AABB from a position and size (bottom-center origin point)
+    /// Creates an AABB centered horizontally on the position, but extending upwards (height).
     /// </summary>
     public static AABB FromEntity(GlobalPos position, Vector3 size)
     {
@@ -23,6 +28,10 @@ public struct AABB(GlobalPos min, GlobalPos max)
         );
     }
 
+    /// <summary>
+    /// Returns a new AABB stretched to encompass both the original box and the movement vector.
+    /// Used for "Broad Phase" collision detection.
+    /// </summary>
     public AABB Expand(Vector3 v)
     {
         var min = Min;
@@ -46,38 +55,46 @@ public struct AABB(GlobalPos min, GlobalPos max)
     }
 
     /// <summary>
-    /// Returns the offset needed to resolve collision on an axis
+    /// Calculates the maximum distance we can move along an axis before hitting 'other'.
+    /// <para>
+    /// Logic: 
+    /// 1. Check if we overlap on the other two perpendicular axes (e.g., if moving X, check Y and Z).
+    /// 2. If we overlap, calculate the distance to the edge of 'other'.
+    /// </para>
     /// </summary>
     public float CalculateOffset(AABB other, float offset, Axis axis)
     {
-        // If we aren't colliding on the OTHER two axes, we don't care about this one
-        if (axis == Axis.X) // Check Y and Z
+        if (axis == Axis.X)
         {
+            // If not overlapping on Y or Z, we can't collide on X
             if (Max.Y - Epsilon <= other.Min.Y || Min.Y + Epsilon >= other.Max.Y) return offset;
             if (Max.Z - Epsilon <= other.Min.Z || Min.Z + Epsilon >= other.Max.Z) return offset;
 
             if (offset > 0 && Max.X <= other.Min.X + Epsilon)
                 return MathF.Min(offset, (float)(other.Min.X - Max.X));
+
             if (offset < 0 && Min.X >= other.Max.X - Epsilon)
                 return MathF.Max(offset, (float)(other.Max.X - Min.X));
         }
-        else if (axis == Axis.Y) // Check X and Z
+        else if (axis == Axis.Y)
         {
             if (Max.X - Epsilon <= other.Min.X || Min.X + Epsilon >= other.Max.X) return offset;
             if (Max.Z - Epsilon <= other.Min.Z || Min.Z + Epsilon >= other.Max.Z) return offset;
 
             if (offset > 0 && Max.Y <= other.Min.Y + Epsilon)
                 return MathF.Min(offset, (float)(other.Min.Y - Max.Y));
+
             if (offset < 0 && Min.Y >= other.Max.Y - Epsilon)
                 return MathF.Max(offset, (float)(other.Max.Y - Min.Y));
         }
-        else if (axis == Axis.Z) // Check X and Y
+        else if (axis == Axis.Z)
         {
             if (Max.X - Epsilon <= other.Min.X || Min.X + Epsilon >= other.Max.X) return offset;
             if (Max.Y - Epsilon <= other.Min.Y || Min.Y + Epsilon >= other.Max.Y) return offset;
 
             if (offset > 0 && Max.Z <= other.Min.Z + Epsilon)
                 return MathF.Min(offset, (float)(other.Min.Z - Max.Z));
+
             if (offset < 0 && Min.Z >= other.Max.Z - Epsilon)
                 return MathF.Max(offset, (float)(other.Max.Z - Min.Z));
         }

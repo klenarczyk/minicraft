@@ -9,10 +9,15 @@ public enum LogLevel
     Fatal
 }
 
+/// <summary>
+/// A thread-safe static logger that multiplexes output to both the System Console and a text file.
+/// </summary>
 public static class Logger
 {
     private static string? _logFilePath;
-    private static readonly Lock Lock = new();
+
+    // Thread safety lock to prevent garbled output from multiple threads
+    private static readonly Lock _lock = new();
 
     public static void Initialize()
     {
@@ -26,9 +31,12 @@ public static class Logger
         Log(LogLevel.Info, "Logger Initialized.");
     }
 
+    /// <summary>
+    /// The core logging entry point. Synchronizes access and formats the message.
+    /// </summary>
     public static void Log(LogLevel level, string message)
     {
-        lock (Lock)
+        lock (_lock)
         {
             var timestamp = DateTime.Now.ToString("HH:mm:ss");
             var formattedMessage = $"[{timestamp}] [{level}] {message}";
@@ -38,12 +46,17 @@ public static class Logger
         }
     }
 
+    // --- Public Shortcuts ---
+
     public static void Debug(string message) => Log(LogLevel.Debug, message);
     public static void Info(string message) => Log(LogLevel.Info, message);
     public static void Warn(string message) => Log(LogLevel.Warning, message);
     public static void Error(string message) => Log(LogLevel.Error, message);
-    public static void Error(string message, Exception ex) => 
+
+    public static void Error(string message, Exception ex) =>
         Log(LogLevel.Error, $"{message}\nException: {ex.Message}\nStack Trace: {ex.StackTrace}");
+
+    // --- Output Channels ---
 
     private static void WriteToConsole(LogLevel level, string message)
     {
@@ -72,6 +85,7 @@ public static class Logger
         }
         catch
         {
+            // Fail silently to avoid infinite error loops if the disk is full/locked
             Console.WriteLine("Failed to write to log file.");
         }
     }

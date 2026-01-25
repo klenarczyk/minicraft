@@ -1,10 +1,15 @@
-﻿using OpenTK.Mathematics;
+﻿using Minicraft.Engine.Diagnostics;
+using OpenTK.Mathematics;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
 namespace Minicraft.Engine.Graphics.Atlasing;
 
+/// <summary>
+/// A utility that combines multiple small textures into a single large "Atlas" image.
+/// Reduces draw calls by allowing the GPU to render many different sprites without switching textures.
+/// </summary>
 public static class TextureStitcher
 {
     public struct StitchResult
@@ -14,14 +19,14 @@ public static class TextureStitcher
     }
 
     /// <summary>
-    /// STRICT GRID: Best for terrain blocks. 
-    /// Enforces exact tileSize for every element. No padding (to allow seamless tiling).
+    /// STRICT GRID PACKING: Best for terrain blocks (Uniform size, No padding).
+    /// Enforces exact tiling to prevent "seams" when rendering the world.
     /// </summary>
     public static StitchResult CreateTerrainAtlas(IEnumerable<string> filePaths, int tileSize = 16)
     {
         var images = new List<(string Name, Image<Rgba32> Img)>();
 
-        // Load all images
+        // Load and Validate
         foreach (var path in filePaths)
         {
             var img = Image.Load<Rgba32>(path);
@@ -40,6 +45,7 @@ public static class TextureStitcher
         var x = 0;
         var y = 0;
 
+        // Use Source Over to handle transparent blocks (glass/leaves) correctly
         var drawOptions = new GraphicsOptions
         {
             BlendPercentage = 1f,
@@ -52,14 +58,15 @@ public static class TextureStitcher
             {
                 ctx.DrawImage(img, new Point(x, y), drawOptions);
 
-                // UVs: (U, V, Width, Height) - V is flipped for OpenGL
+                // UV Calculation: (U, V, Width, Height)
                 var u = (float)x / atlasSize;
-                var v = (float)(atlasSize - y - tileSize) / atlasSize;
+                var v = (float)(atlasSize - y - tileSize) / atlasSize; // Flip Y for GL
                 var w = (float)tileSize / atlasSize;
                 var h = (float)tileSize / atlasSize;
 
                 uvMap[name] = new Vector4(u, v, w, h);
 
+                // Advance Cursor
                 x += tileSize;
                 if (x + tileSize > atlasSize)
                 {
@@ -67,39 +74,35 @@ public static class TextureStitcher
                     y += tileSize;
                 }
 
-                img.Dispose(); // Cleanup individual tile
+                img.Dispose(); // Free memory immediately
             }
         });
 
-        // --- DEBUG SAVE ---
         SaveDebugAtlas(atlas, "terrain_atlas.png");
-
         return new StitchResult { AtlasImage = atlas, UvMap = uvMap };
     }
 
     /// <summary>
-    /// SHELF PACKING: Best for Items/Icons.
-    /// Sorts by height, packs into rows. Adds small padding to prevent bleed.
+    /// SHELF PACKING: Best for Items/Icons (Variable height, Padding required).
+    /// Sorts sprites by height and packs them into rows ("shelves") to minimize wasted space.
     /// </summary>
     public static StitchResult CreateItemAtlas(Dictionary<string, Image<Rgba32>> sourceImages, int padding = 1)
     {
-        // Sort by height descending
+        // Sort by height descending to fill tall gaps first
         var sortedImages = sourceImages.OrderByDescending(i => i.Value.Height).ToList();
 
-        // Estimate size area needed + 20% overhead
+        // Estimate area needed + 20% buffer
         var totalArea = sortedImages.Sum(i => (long)((i.Value.Width + padding) * (i.Value.Height + padding)));
         var atlasSize = GetNextPowerOfTwo((int)Math.Sqrt(totalArea * 1.2));
 
-        // Ensure we start at least at 256
         atlasSize = Math.Max(256, atlasSize);
 
         return PackWithShelfAlgo(sortedImages, atlasSize, padding, "item_atlas.png");
     }
 
     /// <summary>
-    /// VARIABLE PACKING: Best for UI.
-    /// Handles wildly different aspect ratios (long hotbars vs tiny buttons). 
-    /// Adds larger padding to handle linear filtering scaling artifacts.
+    /// VARIABLE PACKING: Best for UI (High variance in aspect ratio).
+    /// Uses larger padding to prevent texture bleeding when UI scales.
     /// </summary>
     public static StitchResult CreateUiAtlas(Dictionary<string, Image<Rgba32>> sourceImages, int padding = 2)
     {
@@ -108,10 +111,12 @@ public static class TextureStitcher
         var totalArea = sortedImages.Sum(i => (long)((i.Value.Width + padding) * (i.Value.Height + padding)));
         var atlasSize = GetNextPowerOfTwo((int)Math.Sqrt(totalArea * 1.5));
 
-        atlasSize = Math.Max(512, atlasSize); // UI usually needs at least 512
+        atlasSize = Math.Max(512, atlasSize);
 
         return PackWithShelfAlgo(sortedImages, atlasSize, padding, "ui_atlas.png");
     }
+
+    // --- Core Packing Logic ---
 
     private static StitchResult PackWithShelfAlgo(List<KeyValuePair<string, Image<Rgba32>>> images, int atlasSize, int padding, string debugName)
     {
@@ -121,6 +126,7 @@ public static class TextureStitcher
             AlphaCompositionMode = PixelAlphaCompositionMode.SrcOver
         };
 
+        // Retry loop: If the estimated size is too small, double it and try again.
         while (true)
         {
             try
@@ -131,12 +137,12 @@ public static class TextureStitcher
                 var x = padding;
                 var y = padding;
                 var currentRowHeight = 0;
-                var countDrawn = 0;
 
                 atlas.Mutate(ctx =>
                 {
                     foreach (var (name, img) in images)
                     {
+                        // Check if we need to wrap to a new row
                         if (x + img.Width + padding > atlasSize)
                         {
                             x = padding;
@@ -144,6 +150,7 @@ public static class TextureStitcher
                             currentRowHeight = 0;
                         }
 
+                        // Check if we ran out of vertical space
                         if (y + img.Height + padding > atlasSize)
                         {
                             throw new Exception("Resize Needed");
@@ -159,25 +166,25 @@ public static class TextureStitcher
 
                         uvMap[name] = new Vector4(u, v, w, h);
 
+                        // Advance
                         x += img.Width + padding;
                         currentRowHeight = Math.Max(currentRowHeight, img.Height);
-                        countDrawn++;
                     }
                 });
 
-                // --- DEBUG SAVE ---
                 SaveDebugAtlas(atlas, debugName);
-
                 return new StitchResult { AtlasImage = atlas, UvMap = uvMap };
             }
             catch (Exception ex) when (ex.Message == "Resize Needed")
             {
-                Console.WriteLine($"[Stitcher] Atlas full at {atlasSize}px. Resizing to {atlasSize * 2}px...");
+                Logger.Error($"[Stitcher] Atlas full at {atlasSize}px. Resizing to {atlasSize * 2}px...");
                 atlasSize *= 2;
                 if (atlasSize > 8192) throw new Exception("Atlas grew too large (>8192)!");
             }
         }
     }
+
+    // --- Helpers ---
 
     private static void SaveDebugAtlas(Image<Rgba32> atlas, string filename)
     {
@@ -185,14 +192,11 @@ public static class TextureStitcher
         {
             var dir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Debug", "Atlases");
             Directory.CreateDirectory(dir);
-
-            var path = Path.Combine(dir, filename);
-            
-            atlas.SaveAsPng(path);
+            atlas.SaveAsPng(Path.Combine(dir, filename));
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Stitcher] Failed to save debug atlas {filename}: {ex.Message}");
+            Logger.Error($"[Stitcher] Failed to save debug atlas {filename}: {ex.Message}");
         }
     }
 

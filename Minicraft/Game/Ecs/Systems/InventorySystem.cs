@@ -1,5 +1,5 @@
-﻿using Minicraft.Game.Data;
-using Minicraft.Game.Ecs.Components;
+﻿using Minicraft.Game.Ecs.Components;
+using Minicraft.Game.Items;
 using Minicraft.Game.Registries;
 
 namespace Minicraft.Game.Ecs.Systems;

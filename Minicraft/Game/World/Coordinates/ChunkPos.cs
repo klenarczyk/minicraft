@@ -1,10 +1,16 @@
-﻿namespace Minicraft.Game.Data;
+﻿namespace Minicraft.Game.World.Coordinates;
 
+/// <summary>
+/// Represents the 2D coordinates (X, Z) of a Chunk column.
+/// </summary>
 public readonly struct ChunkPos(int x, int z) : IEquatable<ChunkPos>
 {
     public readonly int X = x;
     public readonly int Z = z;
 
+    /// <summary>
+    /// Calculates which chunk a specific block belongs to.
+    /// </summary>
     public static ChunkPos FromBlockPos(BlockPos pos)
     {
         return new ChunkPos(pos.X >> 4, pos.Z >> 4);

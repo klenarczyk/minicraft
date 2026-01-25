@@ -1,6 +1,5 @@
-﻿using Minicraft.Game.Data;
-using Minicraft.Game.Registries;
-using Minicraft.Game.World.Blocks;
+﻿using Minicraft.Game.Registries;
+using Minicraft.Game.World.Coordinates;
 using OpenTK.Mathematics;
 
 namespace Minicraft.Game.World.Physics;
@@ -9,48 +8,60 @@ public class Raycaster(WorldManager world)
 {
     public RaycastResult Raycast(GlobalPos origin, Vector3 direction, float reach)
     {
+        // Safety Check: Avoid NaN if direction is zero
+        if (direction.LengthSquared < 0.000001f)
+            return new RaycastResult { Hit = false };
+
         direction = Vector3.Normalize(direction);
 
-        var x = (int)Math.Floor(origin.X);
-        var y = (int)Math.Floor(origin.Y);
-        var z = (int)Math.Floor(origin.Z);
+        // Coordinate Setup and Step Direction
+        var x = (int)MathF.Floor((float)origin.X);
+        var y = (int)MathF.Floor((float)origin.Y);
+        var z = (int)MathF.Floor((float)origin.Z);
 
         var stepX = Math.Sign(direction.X);
         var stepY = Math.Sign(direction.Y);
         var stepZ = Math.Sign(direction.Z);
 
-        // Distance to travel to cross one whole voxel on that axis
-        var tDeltaX = direction.X != 0 ? Math.Abs(1f / direction.X) : float.PositiveInfinity;
-        var tDeltaY = direction.Y != 0 ? Math.Abs(1f / direction.Y) : float.PositiveInfinity;
-        var tDeltaZ = direction.Z != 0 ? Math.Abs(1f / direction.Z) : float.PositiveInfinity;
+        // Calculate Delta (Distance along ray to cross one unit axis)
+        var tDeltaX = stepX != 0 ? MathF.Abs(1f / direction.X) : float.PositiveInfinity;
+        var tDeltaY = stepY != 0 ? MathF.Abs(1f / direction.Y) : float.PositiveInfinity;
+        var tDeltaZ = stepZ != 0 ? MathF.Abs(1f / direction.Z) : float.PositiveInfinity;
 
-        float tMaxX, tMaxY, tMaxZ;
+        // Calculate Initial tMax (Distance to first boundary)
+        var tMaxX = (stepX > 0)
+            ? (x + 1 - (float)origin.X) * tDeltaX
+            : ((float)origin.X - x) * tDeltaX;
 
-        if (stepX > 0) tMaxX = (x + 1 - (float)origin.X) * tDeltaX;
-        else tMaxX = ((float)origin.X - x) * tDeltaX;
+        var tMaxY = (stepY > 0)
+            ? (y + 1 - (float)origin.Y) * tDeltaY
+            : ((float)origin.Y - y) * tDeltaY;
 
-        if (stepY > 0) tMaxY = (y + 1 - (float)origin.Y) * tDeltaY;
-        else tMaxY = ((float)origin.Y - y) * tDeltaY;
-
-        if (stepZ > 0) tMaxZ = (z + 1 - (float)origin.Z) * tDeltaZ;
-        else tMaxZ = ((float)origin.Z - z) * tDeltaZ;
+        var tMaxZ = (stepZ > 0)
+            ? (z + 1 - (float)origin.Z) * tDeltaZ
+            : ((float)origin.Z - z) * tDeltaZ;
 
         var distance = 0f;
         var normal = Vector3i.Zero;
 
+        // The DDA Loop
         while (distance <= reach)
         {
-            var block = world.GetBlockAt(new BlockPos(x, y, z));
+            // Check the current voxel
+            var currentPos = new BlockPos(x, y, z);
+            var block = world.GetBlockAt(currentPos);
+
             if (BlockRegistry.Get(block).Behavior.IsSolid)
             {
                 return new RaycastResult
                 {
                     Hit = true,
-                    BlockPosition = new BlockPos(x, y, z),
+                    BlockPosition = currentPos,
                     FaceNormal = normal
                 };
             }
 
+            // Find the shortest distance to a boundary
             if (tMaxX < tMaxY)
             {
                 if (tMaxX < tMaxZ)
@@ -58,7 +69,7 @@ public class Raycaster(WorldManager world)
                     x += stepX;
                     distance = tMaxX;
                     tMaxX += tDeltaX;
-                    normal = new Vector3i(-stepX, 0, 0);
+                    normal = new Vector3i(-stepX, 0, 0); // Normal points opposite to step
                 }
                 else
                 {

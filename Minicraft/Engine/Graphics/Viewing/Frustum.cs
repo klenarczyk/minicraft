@@ -1,18 +1,22 @@
 ﻿using OpenTK.Mathematics;
 
-namespace Minicraft.Engine.Graphics.Core;
+namespace Minicraft.Engine.Graphics.Viewing;
 
+/// <summary>
+/// Handles View Frustum Culling.
+/// Extracts the 6 clipping planes from the camera matrix and checks if objects are within the field of view.
+/// </summary>
 public static class Frustum
 {
     private static readonly Vector4[] Planes = new Vector4[6];
 
     /// <summary>
-    /// Extract planes from View * Projection matrix.
-    /// Standard algorithm.
+    /// Recalculates the frustum planes based on the current View-Projection matrix.
+    /// Uses the standard Gribb-Hartmann extraction method.
     /// </summary>
-    /// <param name="viewProjection"></param>
     public static void Update(Matrix4 viewProjection)
     {
+        // --- Plane Extraction ---
         // Left
         Planes[0] = new Vector4(
             viewProjection.M14 + viewProjection.M11,
@@ -56,7 +60,7 @@ public static class Frustum
             viewProjection.M44 - viewProjection.M43
         );
 
-        // Normalize Planes
+        // --- Normalization ---
         for (var i = 0; i < 6; i++)
         {
             var length = new Vector3(Planes[i].X, Planes[i].Y, Planes[i].Z).Length;
@@ -64,10 +68,15 @@ public static class Frustum
         }
     }
 
+    /// <summary>
+    /// Checks if an Axis-Aligned Bounding Box (AABB) is inside or intersecting the frustum.
+    /// </summary>
     public static bool IsBoxVisible(Vector3 min, Vector3 max)
     {
         foreach (var plane in Planes)
         {
+            // We only need to check the corner of the box that is furthest along the plane's normal.
+            // If that corner is behind the plane, the entire box is behind the plane.
             Vector3 p;
             p.X = plane.X > 0 ? max.X : min.X;
             p.Y = plane.Y > 0 ? max.Y : min.Y;

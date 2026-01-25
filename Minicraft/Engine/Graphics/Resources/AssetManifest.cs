@@ -1,16 +1,24 @@
 ﻿namespace Minicraft.Engine.Graphics.Resources;
 
+/// <summary>
+/// Scans the disk to build a complete list of raw texture files.
+/// This manifest is fed into the texture packer to generate atlases.
+/// </summary>
 public class AssetManifest
 {
     public List<string> BlockTextures = [];
     public List<string> ItemTextures = [];
     public List<string> GuiTextures = [];
 
+    /// <summary>
+    /// Recursively finds all .png files in the Assets/Textures subfolders.
+    /// </summary>
     public void ScanFolder(string path)
     {
         if (!Directory.Exists(path))
-            throw new FileNotFoundException($"Path not found: {path}");
+            throw new FileNotFoundException($"Asset root not found: {path}");
 
+        // --- Block Textures ---
         var blockTexPath = Path.Combine(path, "Textures", "Blocks");
         if (Directory.Exists(blockTexPath))
         {
@@ -18,6 +26,7 @@ public class AssetManifest
             BlockTextures.AddRange(blockFiles);
         }
 
+        // --- Item Textures ---
         var itemTexPath = Path.Combine(path, "Textures", "Items");
         if (Directory.Exists(itemTexPath))
         {
@@ -25,6 +34,7 @@ public class AssetManifest
             ItemTextures.AddRange(itemFiles);
         }
 
+        // --- UI Sprites ---
         var uiTexPath = Path.Combine(path, "Textures", "Ui");
         if (Directory.Exists(uiTexPath))
         {

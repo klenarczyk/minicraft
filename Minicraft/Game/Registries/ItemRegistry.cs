@@ -1,12 +1,15 @@
 ﻿using System.Text.Json;
 using Minicraft.Engine.Diagnostics;
-using Minicraft.Game.Data;
-using Minicraft.Game.Data.Schemas;
 using Minicraft.Game.Items;
 using Minicraft.Game.Items.ItemTypes;
+using Minicraft.Game.Serialization;
 
 namespace Minicraft.Game.Registries;
 
+/// <summary>
+/// Global dictionary for all item definitions. 
+/// Handles ID assignment, JSON loading, and the auto-generation of BlockItems.
+/// </summary>
 public static class ItemRegistry
 {
     private static readonly Item[] Items = new Item[ushort.MaxValue];
@@ -21,9 +24,9 @@ public static class ItemRegistry
 
         Register("air", new Item("air", 0, []));
 
-        // Block Items
+        // --- Block Items ---
+        // Automatically create an Item for every registered Block so they can be held/placed.
         var allBlocks = BlockRegistry.GetAllBlocks();
-
         foreach (var block in allBlocks)
         {
             if (block.Id == 0) continue; // Skip air block
@@ -34,7 +37,8 @@ public static class ItemRegistry
             Register(simpleName, blockItem);
         }
 
-        // Normal Items
+        // --- Standalone Items ---
+        // Load items defined purely in JSON (tools, resources, etc.)
         LoadAllItems();
     }
 
@@ -70,6 +74,9 @@ public static class ItemRegistry
         item.InternalName = key;
     }
 
+    /// <summary>
+    /// Scans the Assets/Data/Items folder for JSON definitions.
+    /// </summary>
     public static void LoadAllItems()
     {
         var dataPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "Data", "Items");

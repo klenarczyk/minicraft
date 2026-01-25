@@ -9,6 +9,9 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace Minicraft;
 
+/// <summary>
+/// The main application window. Manages the OpenGL context, input polling, and the active game session.
+/// </summary>
 public class GameWindow : OpenTK.Windowing.Desktop.GameWindow
 {
     private ResourceManager? _resourceManager;
@@ -28,19 +31,20 @@ public class GameWindow : OpenTK.Windowing.Desktop.GameWindow
         Logger.Info("[GameWindow] Initializing");
         base.OnLoad();
 
-        // Graphics Hardware Info
+        // --- Graphics Hardware Info ---
         var glVendor = GL.GetString(StringName.Vendor);
         var glRenderer = GL.GetString(StringName.Renderer);
         var glVersion = GL.GetString(StringName.Version);
         Logger.Info($"[GameWindow] GPU: {glRenderer} by {glVendor}");
         Logger.Info($"[GameWindow] OpenGL Version: {glVersion}");
 
+        // --- Asset Pipeline ---
         try
         {
-            // Asset Pipeline
             Logger.Info("[GameWindow] Initializing Resource Manager");
             _resourceManager = new ResourceManager();
             _resourceManager.Initialize(Path.Combine(AppContext.BaseDirectory, "Assets"));
+
             ItemRegistry.Initialize();
         }
         catch (Exception ex)
@@ -49,12 +53,14 @@ public class GameWindow : OpenTK.Windowing.Desktop.GameWindow
             throw;
         }
 
-        // Standard GL Settings
+        // --- OpenGL Settings ---
         GL.Enable(EnableCap.DepthTest);
         GL.Enable(EnableCap.CullFace);
         GL.CullFace(TriangleFace.Back);
+
         GL.Enable(EnableCap.Blend);
         GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+
         GL.ClearColor(0.5f, 0.7f, 1.0f, 1.0f); // Sky blue
 
         CursorState = CursorState.Grabbed;
@@ -72,7 +78,7 @@ public class GameWindow : OpenTK.Windowing.Desktop.GameWindow
 
         Context.SwapBuffers();
 
-        // FPS Logging
+        // --- FPS Logging ---
         _frameCount++;
         _timeSinceLastLog += args.Time;
         if (_timeSinceLastLog >= 1.0)
@@ -87,11 +93,12 @@ public class GameWindow : OpenTK.Windowing.Desktop.GameWindow
     {
         base.OnUpdateFrame(args);
 
-        // Global Window Keybinds
+        // --- Global Shortcuts ---
         if (KeyboardState.IsKeyPressed(Keys.Escape)) Close();
         if (KeyboardState.IsKeyPressed(Keys.F11))
             WindowState = WindowState == WindowState.Fullscreen ? WindowState.Normal : WindowState.Fullscreen;
 
+        // --- Focus Handling ---
         if (!IsFocused)
         {
             CursorState = CursorState.Normal;

@@ -1,7 +1,11 @@
 ﻿using OpenTK.Mathematics;
 
-namespace Minicraft.Game.Data;
+namespace Minicraft.Game.World.Coordinates;
 
+/// <summary>
+/// Represents a high-precision position in the world. 
+/// Uses doubles to prevent coordinate jitter at large distances.
+/// </summary>
 public struct GlobalPos(double x, double y, double z)
 {
     public double X = x;

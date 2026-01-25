@@ -1,4 +1,4 @@
-﻿namespace Minicraft.Game.Data;
+﻿namespace Minicraft.Engine.Geometry;
 
 public enum Direction
 {

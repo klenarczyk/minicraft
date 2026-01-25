@@ -1,4 +1,4 @@
-﻿using Minicraft.Game.Data;
+﻿using Minicraft.Game.Items;
 
 namespace Minicraft.Game.Ecs.Components;
 

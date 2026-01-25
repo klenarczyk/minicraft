@@ -5,7 +5,7 @@ Logger.Initialize();
 
 try
 {
-    Logger.Info("Starting Minicraft...");
+    Logger.Info("Starting Game...");
 
     using var game = new GameWindow(1280, 720);
     game.Run();

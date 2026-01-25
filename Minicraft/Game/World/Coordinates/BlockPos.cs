@@ -1,7 +1,10 @@
 ﻿using OpenTK.Mathematics;
 
-namespace Minicraft.Game.Data;
+namespace Minicraft.Game.World.Coordinates;
 
+/// <summary>
+/// Represents a discrete integer coordinate in the voxel grid.
+/// </summary>
 public readonly struct BlockPos(int x, int y, int z) : IEquatable<BlockPos>
 {
     public readonly int X = x;

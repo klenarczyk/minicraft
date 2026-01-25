@@ -3,6 +3,9 @@ using Minicraft.Game.Ecs.Components;
 
 namespace Minicraft.Game.Ui;
 
+/// <summary>
+/// Base class for all 2D Heads-Up Display (HUD) components.
+/// </summary>
 public abstract class UiElement
 {
     protected const float Scale = 3.0f;

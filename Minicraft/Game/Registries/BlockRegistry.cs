@@ -1,14 +1,18 @@
 ﻿using Minicraft.Engine.Diagnostics;
-using Minicraft.Game.Data;
-using Minicraft.Game.Data.Schemas;
 using Minicraft.Game.World.Blocks;
 using Minicraft.Game.World.Blocks.Behaviors;
 using Minicraft.Game.World.Meshing;
 using OpenTK.Mathematics;
 using System.Text.Json;
+using Minicraft.Game.Core;
+using Minicraft.Game.Serialization;
 
 namespace Minicraft.Game.Registries;
 
+/// <summary>
+/// Central database for all block definitions. 
+/// Handles loading block properties from JSON and mapping 3D models to Texture Atlas UVs.
+/// </summary>
 public static class BlockRegistry
 {
     private static readonly Block[] Blocks = new Block[BlockId.MaxValue];
@@ -21,10 +25,15 @@ public static class BlockRegistry
     {
         Logger.Info("[BlockRegistry] Initializing");
 
+        // Manually register Air (ID 0) so it is always available
         var airBehavior = new AirBlock();
         Register("air", new Block(airBehavior, 0, 0, new Dictionary<BlockFace, Vector4>(), []));
+
+        // Load content
         LoadAllBlocks();
     }
+
+    // --- Core API ---
 
     public static Block Get(BlockId id)
     {
@@ -48,7 +57,12 @@ public static class BlockRegistry
 
     public static BlockId GetId(string name)
     {
-        return NameToId.GetValueOrDefault($"block:{name.ToLower()}",0);
+        return NameToId.GetValueOrDefault($"block:{name.ToLower()}", 0);
+    }
+
+    public static List<Block> GetAllBlocks()
+    {
+        return Blocks.Where(b => b != null).ToList();
     }
 
     private static void Register(string name, Block def)
@@ -65,6 +79,8 @@ public static class BlockRegistry
         def.InternalName = key;
     }
 
+    // --- Loading Pipeline ---
+
     public static void LoadAllBlocks()
     {
         var dataPath = Path.Combine(AppContext.BaseDirectory, "Assets", "Data", "Blocks");
@@ -79,6 +95,7 @@ public static class BlockRegistry
 
                 var data = JsonSerializer.Deserialize<BlockJson>(json, JsonOptions);
 
+                // Resolve dependencies
                 var behavior = GetBehaviorFromString(data.Behavior);
                 var uvs = LoadModelUvs(name);
 
@@ -92,11 +109,6 @@ public static class BlockRegistry
         }
     }
 
-    public static List<Block> GetAllBlocks()
-    {
-        return Blocks.Where(b => b != null).ToList();
-    }
-
     private static BlockBehavior GetBehaviorFromString(string behaviorName)
     {
         return behaviorName switch
@@ -107,6 +119,8 @@ public static class BlockRegistry
             _ => new StandardBlock()
         };
     }
+
+    // --- Model & Texture Resolution ---
 
     private static Dictionary<BlockFace, Vector4> LoadModelUvs(string name)
     {
@@ -120,9 +134,9 @@ public static class BlockRegistry
         }
 
         var json = File.ReadAllText(modelPath);
-        
         var modelData = JsonSerializer.Deserialize<BlockModelJson>(json, JsonOptions);
 
+        // "All" texture (Cube)
         if (modelData.Textures.TryGetValue("all", out var textureName))
         {
             var meta = AssetRegistry.Get($"block:{textureName}");
@@ -135,7 +149,7 @@ public static class BlockRegistry
         }
         else
         {
-            // Handle specific faces
+            // Multi-texture (Grass, Log, etc.)
             AssignFace(result, modelData.Textures, BlockFace.Top, "top", "up");
             AssignFace(result, modelData.Textures, BlockFace.Bottom, "bottom", "down");
             AssignFace(result, modelData.Textures, BlockFace.Left, "left", "west", "side");
@@ -162,6 +176,7 @@ public static class BlockRegistry
 
     private static Dictionary<BlockFace, Vector4> GetDefaultFaces()
     {
+        // TODO: Return a fallback "Missing Texture" UV set
         throw new NotImplementedException();
     }
 }

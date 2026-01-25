@@ -2,6 +2,10 @@
 
 namespace Minicraft.Game.Registries;
 
+/// <summary>
+/// Categorizes textures based on which mega-texture (atlas) they belong to.
+/// Used to manage render batches.
+/// </summary>
 public enum AtlasType
 {
     Blocks,
@@ -15,6 +19,9 @@ public struct TextureMetadata
     public AtlasType ParentAtlas;
 }
 
+/// <summary>
+/// Stores the UV coordinates for every individual asset packed into the texture atlases.
+/// </summary>
 public static class AssetRegistry
 {
     private static readonly Dictionary<string, TextureMetadata> Registry = new();
@@ -28,10 +35,12 @@ public static class AssetRegistry
         };
     }
 
+    // --- Lookups ---
+
     public static TextureMetadata Get(string key)
     {
-        return Registry.TryGetValue(key, out var meta) 
-            ? meta 
+        return Registry.TryGetValue(key, out var meta)
+            ? meta
             : throw new Exception($"Asset not found: {key}");
     }
 
@@ -39,18 +48,19 @@ public static class AssetRegistry
     {
         return Registry.TryGetValue($"block:{name}", out var meta)
             ? meta
-            : throw new Exception($"Block not found: {name}");
+            : throw new Exception($"Block texture not found: {name}");
     }
 
     public static TextureMetadata GetItem(string name)
     {
         return Registry.TryGetValue($"item:{name}", out var meta)
             ? meta
-            : throw new Exception($"Item not found: {name}");
+            : throw new Exception($"Item icon not found: {name}");
     }
 
     /// <summary>
-    /// Returns the Vector4 coordinates of the fallback texture.
+    /// Returns the coordinates of a default "error" texture (magenta/black checkerboard).
+    /// Used when a requested texture is missing to avoid crashing.
     /// </summary>
     public static Vector4 GetFallbackUvs()
     {

@@ -1,19 +1,25 @@
 ﻿using Minicraft.Engine.Graphics.Buffers;
-using Minicraft.Engine.Graphics.Resources;
-using Minicraft.Game.Data;
+using Minicraft.Engine.Graphics.Data;
+using Minicraft.Game.Core;
 using Minicraft.Game.Registries;
+using Minicraft.Game.World.Coordinates;
+using Minicraft.Game.World.Generation;
 using Minicraft.Game.World.Meshing;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 
-namespace Minicraft.Game.World.Generation;
+namespace Minicraft.Game.World;
 
+/// <summary>
+/// Represents a 16x256x16 column of blocks. Manages its own mesh generation, 
+/// OpenGL state, and visibility logic.
+/// </summary>
 public class Chunk(ChunkPos position)
 {
     public readonly ChunkPos Position = position;
     private readonly BlockId[] _blocks = new BlockId[Size * Size * Height];
 
-    // Data calculated by worker threads
+    // --- Mesh Construction Data (Worker Thread) ---
     private readonly List<Vector3> _vertices = [];
     private readonly List<Vector2> _uvs = [];
     private readonly List<uint> _indices = [];
@@ -22,10 +28,10 @@ public class Chunk(ChunkPos position)
     public const int Size = 16;
     public const int Height = 256;
 
-    // OpenGL objects (Main thread only)
-    private Vao? _vao;
-    private Vbo? _vboVerts, _vboUvs, _vboAo;
-    private Ebo? _ebo;
+    // --- OpenGL Resources (Main Thread) ---
+    private VertexArray? _vao;
+    private VertexBuffer? _vboVerts, _vboUvs, _vboAo;
+    private IndexBuffer? _ebo;
 
     public bool IsDataGenerated { get; private set; }
     public bool IsMeshGenerated { get; private set; }
@@ -34,17 +40,25 @@ public class Chunk(ChunkPos position)
     public readonly Lock MeshGenLock = new();
     public bool MeshGenerationRequested { get; set; }
 
+    /// <summary>
+    /// Populates the block array using the provided WorldGenerator.
+    /// </summary>
     public void GenerateData(WorldGenerator generator)
     {
         generator.GenerateChunk(this);
         IsDataGenerated = true;
     }
 
+    /// <summary>
+    /// Builds the visual mesh. Safe to run on a background thread.
+    /// <para>Requires 4 neighbors to calculate face culling and Ambient Occlusion correctly.</para>
+    /// </summary>
     public void GenerateMesh(Chunk west, Chunk east, Chunk north, Chunk south)
     {
         if (!IsDataGenerated) return;
 
-        lock (MeshGenLock) {
+        lock (MeshGenLock)
+        {
             if (!MeshGenerationRequested) return;
 
             _vertices.Clear();
@@ -58,52 +72,58 @@ public class Chunk(ChunkPos position)
         }
     }
 
+    /// <summary>
+    /// Uploads the generated mesh data to the GPU. Must be called on the Main Thread.
+    /// </summary>
     public void UploadMesh()
     {
         if (!IsMeshGenerated) return;
 
-        _vao = new Vao();
+        _vao = new VertexArray();
         _vao.Bind();
 
         lock (MeshGenLock)
         {
-            _vboVerts = new Vbo();
+            _vboVerts = new VertexBuffer();
             _vboVerts.UploadData(_vertices);
             _vboVerts.Bind();
             _vao.LinkToVao(0, 3, _vboVerts);
 
-            _vboUvs = new Vbo();
+            _vboUvs = new VertexBuffer();
             _vboUvs.UploadData(_uvs);
             _vboUvs.Bind();
             _vao.LinkToVao(1, 2, _vboUvs);
 
-            _vboAo = new Vbo();
+            _vboAo = new VertexBuffer();
             _vboAo.UploadData(_ao);
             _vboAo.Bind();
             _vao.LinkToVao(2, 1, _vboAo);
 
-            _ebo = new Ebo();
+            _ebo = new IndexBuffer();
             _ebo.UploadData(_indices);
         }
 
         IsActive = true;
     }
 
+    // --- Mesh Generation Logic ---
+
     private void GenerateFaces(Chunk west, Chunk east, Chunk north, Chunk south)
     {
         for (var x = 0; x < Size; x++)
-        for (var y = 0; y < Height; y++)
-        for (var z = 0; z < Size; z++)
-        {
-            if (GetBlock(x, y, z) == 0) continue;
+            for (var y = 0; y < Height; y++)
+                for (var z = 0; z < Size; z++)
+                {
+                    if (GetBlock(x, y, z) == 0) continue;
 
-            if (ShouldRenderFace(x, y, z + 1, north)) AddFaceData(x, y, z, BlockFace.Front, west, east, north, south);
-            if (ShouldRenderFace(x, y, z - 1, south)) AddFaceData(x, y, z, BlockFace.Back, west, east, north, south);
-            if (ShouldRenderFace(x - 1, y, z, west)) AddFaceData(x, y, z, BlockFace.Left, west, east, north, south);
-            if (ShouldRenderFace(x + 1, y, z, east)) AddFaceData(x, y, z, BlockFace.Right, west, east, north, south);
-            if (ShouldRenderFace(x, y + 1, z, null)) AddFaceData(x, y, z, BlockFace.Top, west, east, north, south);
-            if (ShouldRenderFace(x, y - 1, z, null)) AddFaceData(x, y, z, BlockFace.Bottom, west, east, north, south);
-        }
+                    // Face Culling: Only draw faces that touch transparent blocks
+                    if (ShouldRenderFace(x, y, z + 1, north)) AddFaceData(x, y, z, BlockFace.Front, west, east, north, south);
+                    if (ShouldRenderFace(x, y, z - 1, south)) AddFaceData(x, y, z, BlockFace.Back, west, east, north, south);
+                    if (ShouldRenderFace(x - 1, y, z, west)) AddFaceData(x, y, z, BlockFace.Left, west, east, north, south);
+                    if (ShouldRenderFace(x + 1, y, z, east)) AddFaceData(x, y, z, BlockFace.Right, west, east, north, south);
+                    if (ShouldRenderFace(x, y + 1, z, null)) AddFaceData(x, y, z, BlockFace.Top, west, east, north, south);
+                    if (ShouldRenderFace(x, y - 1, z, null)) AddFaceData(x, y, z, BlockFace.Bottom, west, east, north, south);
+                }
     }
 
     private bool ShouldRenderFace(int neighborX, int neighborY, int neighborZ, Chunk? neighborChunk)
@@ -112,6 +132,7 @@ public class Chunk(ChunkPos position)
 
         BlockId neighborId;
 
+        // Determine if neighbor is in this chunk or a neighbor chunk
         if (neighborX is >= 0 and < Size && neighborZ is >= 0 and < Size)
         {
             neighborId = GetBlock(neighborX, neighborY, neighborZ);
@@ -124,7 +145,7 @@ public class Chunk(ChunkPos position)
         }
         else
         {
-            return true;
+            return true; // Edge of the loaded world, render it to be safe
         }
 
         return BlockRegistry.Get(neighborId).Behavior.IsTransparent;
@@ -135,12 +156,12 @@ public class Chunk(ChunkPos position)
         var blockId = GetBlock(x, y, z);
         var blockDef = BlockRegistry.Get(blockId);
 
-        // Geometry
+        // 1. Geometry
         var rawVerts = BlockGeometry.RawVertexData[blockFace];
         foreach (var vert in rawVerts)
             _vertices.Add(vert + new Vector3(Position.X + x, y, Position.Z + z));
 
-        // UVs
+        // 2. UV Mapping
         if (blockDef.Uvs.TryGetValue(blockFace, out var faceUvs))
         {
             // BL -> BR -> TR -> TL
@@ -150,7 +171,7 @@ public class Chunk(ChunkPos position)
             _uvs.Add(new Vector2(faceUvs.X, faceUvs.Y + faceUvs.W));
         }
 
-        // Ambient Occlusion
+        // 3. Ambient Occlusion
         var faceAo = new float[4];
         for (var i = 0; i < 4; i++)
         {
@@ -158,7 +179,7 @@ public class Chunk(ChunkPos position)
             _ao.Add(faceAo[i]);
         }
 
-        // Indices
+        // 4. Indices (Triangulation)
         AddIndices(faceAo);
     }
 
@@ -166,6 +187,7 @@ public class Chunk(ChunkPos position)
     {
         var baseIndex = _vertices.Count - 4;
 
+        // Flip quad logic based on AO
         if (faceAo[0] + faceAo[2] > faceAo[1] + faceAo[3])
         {
             _indices.Add((uint)baseIndex);
@@ -186,6 +208,8 @@ public class Chunk(ChunkPos position)
         }
     }
 
+    // --- Helpers ---
+
     private bool IsBlockSolid(int x, int y, int z, Chunk west, Chunk east, Chunk north, Chunk south)
     {
         if (y is < 0 or >= Height) return false;
@@ -197,6 +221,7 @@ public class Chunk(ChunkPos position)
         }
         else
         {
+            // Handle neighbor chunk lookups
             var localX = (x % Size + Size) % Size;
             var localZ = (z % Size + Size) % Size;
 
@@ -209,11 +234,16 @@ public class Chunk(ChunkPos position)
         return BlockRegistry.Get(blockId).Behavior.IsSolid;
     }
 
+    /// <summary>
+    /// Calculates the Ambient Occlusion level (0.0 to 1.0) for a specific vertex.
+    /// Checks 3 neighboring blocks (side1, side2, corner) to determine occlusion.
+    /// </summary>
     private float GetAo(int x, int y, int z, BlockFace blockFace, int vertexIndex, Chunk west, Chunk east, Chunk north, Chunk south)
     {
         int x1 = 0, y1 = 0, z1 = 0;
         int x2 = 0, y2 = 0, z2 = 0;
 
+        // Map vertex index to neighbor offsets based on face orientation
         switch (blockFace)
         {
             case BlockFace.Front:
@@ -286,21 +316,16 @@ public class Chunk(ChunkPos position)
         var side1 = IsBlockSolid(x + x1, y + y1, z + z1, west, east, north, south);
         var side2 = IsBlockSolid(x + x2, y + y2, z + z2, west, east, north, south);
 
+        // Calculate corner offset
         var cX = x1 + x2;
         var cY = y1 + y2;
         var cZ = z1 + z2;
 
         switch (blockFace)
         {
-            case BlockFace.Left or BlockFace.Right:
-                cX /= 2;
-                break;
-            case BlockFace.Bottom or BlockFace.Top:
-                cY /= 2;
-                break;
-            case BlockFace.Front or BlockFace.Back:
-                cZ /= 2;
-                break;
+            case BlockFace.Left or BlockFace.Right: cX /= 2; break;
+            case BlockFace.Bottom or BlockFace.Top: cY /= 2; break;
+            case BlockFace.Front or BlockFace.Back: cZ /= 2; break;
         }
 
         var corner = IsBlockSolid(x + cX, y + cY, z + cZ, west, east, north, south);

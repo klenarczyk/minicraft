@@ -1,10 +1,11 @@
-﻿using Minicraft.Engine.Graphics.Core;
-using Minicraft.Game.Data;
+﻿using Minicraft.Engine.Geometry;
+using Minicraft.Engine.Graphics.Viewing;
 using Minicraft.Game.Ecs.Components;
 using Minicraft.Game.Ecs.Entities;
 using Minicraft.Game.Items.ItemTypes;
 using Minicraft.Game.Registries;
 using Minicraft.Game.World;
+using Minicraft.Game.World.Coordinates;
 using Minicraft.Game.World.Physics;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 

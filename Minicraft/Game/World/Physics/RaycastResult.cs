@@ -1,4 +1,4 @@
-﻿using Minicraft.Game.Data;
+﻿using Minicraft.Game.World.Coordinates;
 using OpenTK.Mathematics;
 
 namespace Minicraft.Game.World.Physics;

@@ -2,17 +2,29 @@
 
 namespace Minicraft.Engine.Graphics.Buffers;
 
-public class Vao : IDisposable
+/// <summary>
+/// Wraps an OpenGL Vertex Array Object (VAO).
+/// Acts as a "State Container" that remembers which VBOs are used and how their memory layout is configured.
+/// </summary>
+public class VertexArray : IDisposable
 {
     public readonly int Id = GL.GenVertexArray();
     private bool _disposed;
 
-    public void LinkToVao(int location, int size, Vbo vbo)
+    /// <summary>
+    /// Configures the VAO to read data from a specific VBO.
+    /// </summary>
+    /// <param name="location">The shader attribute location (layout location = X).</param>
+    /// <param name="size">Number of components (e.g., 3 for Vector3).</param>
+    public void LinkToVao(int location, int size, VertexBuffer vertexBuffer)
     {
         Bind();
-        vbo.Bind();
+        vertexBuffer.Bind();
+
+        // Tightly packed data
         GL.VertexAttribPointer(location, size, VertexAttribPointerType.Float, false, 0, 0);
         GL.EnableVertexAttribArray(location);
+
         Unbind();
     }
 
@@ -29,6 +41,7 @@ public class Vao : IDisposable
     public void Dispose()
     {
         if (_disposed) return;
+
         GL.DeleteVertexArray(Id);
         _disposed = true;
         GC.SuppressFinalize(this);

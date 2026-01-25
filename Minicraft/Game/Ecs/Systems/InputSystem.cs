@@ -1,4 +1,4 @@
-﻿using Minicraft.Engine.Graphics.Core;
+﻿using Minicraft.Engine.Graphics.Viewing;
 using Minicraft.Game.Ecs.Components;
 using Minicraft.Game.Ecs.Entities;
 using OpenTK.Mathematics;

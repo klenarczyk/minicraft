@@ -2,8 +2,12 @@
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 
-namespace Minicraft.Engine.Graphics.Resources;
+namespace Minicraft.Engine.Graphics.Data;
 
+/// <summary>
+/// A wrapper for an OpenGL Shader Program.
+/// Handles compiling GLSL source code, linking the program, and sending Uniform data to the GPU.
+/// </summary>
 public class Shader : IDisposable
 {
     public readonly int Id;
@@ -15,16 +19,20 @@ public class Shader : IDisposable
         _name = $"{vertexPath}/{fragmentPath}";
         Logger.Debug($"[Shader] Compiling Shader: {_name}");
 
+        // --- Compilation Pipeline ---
+        // Create the empty program container
         Id = GL.CreateProgram();
 
+        // Compile individual shader stages
         var vertex = CompileShader(ShaderType.VertexShader, vertexPath);
         var fragment = CompileShader(ShaderType.FragmentShader, fragmentPath);
 
+        // Attach and Link
         GL.AttachShader(Id, vertex);
         GL.AttachShader(Id, fragment);
         GL.LinkProgram(Id);
 
-        // Check for linking errors
+        // Verification
         GL.GetProgram(Id, GetProgramParameterName.LinkStatus, out int success);
         if (success == 0)
         {
@@ -32,9 +40,9 @@ public class Shader : IDisposable
             Logger.Error($"[Shader] Linking Failed ({_name}):\n{infoLog}");
         }
 
+        //  Cleanup Intermediate Objects
         GL.DetachShader(Id, vertex);
         GL.DetachShader(Id, fragment);
-        GL.DeleteShader(Id);
         GL.DeleteShader(vertex);
         GL.DeleteShader(fragment);
     }
@@ -42,11 +50,15 @@ public class Shader : IDisposable
     public void Use() => GL.UseProgram(Id);
 
     // --- Uniform Setters ---
+    // These methods push data from CPU (C#) to GPU (GLSL)
 
     public void SetInt(string name, int value)
     {
         var location = GL.GetUniformLocation(Id, name);
-        if (location == -1) Logger.Warn($"[Shader] Uniform '{name}' not found in shader '{_name}'.");
+        if (location == -1)
+        {
+            Logger.Warn($"[Shader] Uniform '{name}' not found (or optimized out) in shader '{_name}'.");
+        }
         GL.Uniform1(location, value);
     }
 
@@ -74,14 +86,7 @@ public class Shader : IDisposable
         GL.Uniform4(location, data);
     }
 
-    public void Dispose()
-    {
-        if (_disposed) return;
-        GL.DeleteProgram(Id);
-        _disposed = true;
-        Logger.Debug($"[Shader] Disposed: {_name}");
-        GC.SuppressFinalize(this);
-    }
+    // --- Internal Helpers ---
 
     private int CompileShader(ShaderType type, string path)
     {
@@ -107,5 +112,14 @@ public class Shader : IDisposable
             throw new FileNotFoundException($"Shader not found: {fullPath}");
         }
         return File.ReadAllText(fullPath);
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        GL.DeleteProgram(Id);
+        _disposed = true;
+        Logger.Debug($"[Shader] Disposed: {_name}");
+        GC.SuppressFinalize(this);
     }
 }

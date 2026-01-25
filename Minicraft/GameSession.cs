@@ -1,14 +1,16 @@
 ﻿using Minicraft.Engine.Diagnostics;
-using Minicraft.Engine.Graphics.Core;
-using Minicraft.Engine.Graphics.Resources;
-using Minicraft.Game.Data;
+using Minicraft.Engine.Graphics.Data;
+using Minicraft.Engine.Graphics.Viewing;
+using Minicraft.Game.Core;
 using Minicraft.Game.Ecs.Components;
 using Minicraft.Game.Ecs.Entities;
 using Minicraft.Game.Ecs.Entities.Blueprints;
 using Minicraft.Game.Ecs.Systems;
+using Minicraft.Game.Items;
 using Minicraft.Game.Rendering;
 using Minicraft.Game.Ui;
 using Minicraft.Game.World;
+using Minicraft.Game.World.Coordinates;
 using Minicraft.Game.World.Physics;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
@@ -17,6 +19,9 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace Minicraft;
 
+/// <summary>
+/// Manages the active gameplay state, including the World, Entity Systems, and Rendering loop.
+/// </summary>
 public class GameSession : IDisposable
 {
     private readonly GameWindow _window;
@@ -32,7 +37,6 @@ public class GameSession : IDisposable
     private readonly InventorySystem _inventorySystem;
     private readonly BlockInteractionSystem _interactionSystem;
 
-    private RaycastResult _currentHit = new() { Hit = false };
     private readonly BlockOutline _outline;
     private readonly HudManager _hudManager;
 
@@ -56,6 +60,7 @@ public class GameSession : IDisposable
         _outline = new BlockOutline();
         _hudManager = new HudManager(_window.Size.X, _window.Size.Y);
 
+        // --- System Initialization ---
         Logger.Info("[GameSession] Initializing Systems");
         _inputSystem = new InputSystem();
         _physicsSystem = new PhysicsSystem(World);
@@ -65,21 +70,24 @@ public class GameSession : IDisposable
         Logger.Info($"[GameSession] Spawning Player at {startingPos.X} {startingPos.Y} {startingPos.Z}");
         _player = Entities.Spawn<PlayerBlueprint>(startingPos);
 
-        // TEMP: Starter Blocks
+        // TEMP: Starter Blocks for testing
         PopulateInventory();
         Logger.Info("[GameSession] Initialization complete");
     }
 
-    // TEMP: Method to add some blocks to the player's inventory for testing
     private void PopulateInventory()
     {
         for (BlockId i = 1; i <= 8; i++)
             _inventorySystem.AddToInventory(_player.GetComponent<InventoryComponent>(), new ItemStack(i, 5));
     }
 
+    /// <summary>
+    /// Updates game logic, input, and physics.
+    /// </summary>
+    /// <param name="dt">Delta time in seconds.</param>
     public void Update(float dt, KeyboardState keyboard, MouseState mouse)
     {
-        // Debug Toggles
+        // --- Debug Toggles ---
         if (keyboard.IsKeyPressed(Keys.F4))
         {
             _wireframeEnabled = !_wireframeEnabled;
@@ -92,6 +100,7 @@ public class GameSession : IDisposable
             Logger.Info($"[GameSession] Frustum Culling Frozen: {_freezeFrustum}");
         }
 
+        // --- System Updates ---
         Entities.Flush();
         HandleHotbar(mouse);
 
@@ -104,12 +113,15 @@ public class GameSession : IDisposable
             _interactionSystem.Update(_player, Camera, mouse, dt);
 
         var playerPos = _player.GetComponent<PositionComponent>().Position;
-        Camera.Position = playerPos + new GlobalPos(0.0, 1.62, 0.0);
+        Camera.Position = playerPos + new GlobalPos(0.0, 1.62, 0.0); // Standard eye height
     }
 
+    /// <summary>
+    /// Renders the scene (World -> HUD).
+    /// </summary>
     public void Render()
     {
-        // World Pass
+        // --- World Pass ---
         _shader.Use();
         var view = Camera.GetViewMatrix();
         var projection = Camera.GetProjectionMatrix();
@@ -126,6 +138,7 @@ public class GameSession : IDisposable
         World.Render(_shader, Camera.Position);
         GL.PolygonMode(TriangleFace.FrontAndBack, PolygonMode.Fill);
 
+        // --- Selection Outline ---
         var target = _player.GetComponent<TargetingComponent>();
         if (target.CurrentHit.Hit)
         {
@@ -134,7 +147,7 @@ public class GameSession : IDisposable
             _outline.Render(vec, Camera.GetViewMatrix(), Camera.GetProjectionMatrix());
         }
 
-        // UI Pass
+        // --- UI Pass ---
         _hudManager.Draw(_player.GetComponent<InventoryComponent>(), _window.Size.X, _window.Size.Y);
     }
 
@@ -148,7 +161,7 @@ public class GameSession : IDisposable
     private void HandleHotbar(MouseState mouse)
     {
         if (mouse.ScrollDelta.Y == 0) return;
-        
+
         var dir = mouse.ScrollDelta.Y > 0 ? -1 : 1;
         _inventorySystem.ScrollHotbar(_player.GetComponent<InventoryComponent>(), dir);
     }

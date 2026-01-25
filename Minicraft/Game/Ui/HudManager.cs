@@ -4,6 +4,10 @@ using Minicraft.Game.Ui.Elements;
 
 namespace Minicraft.Game.Ui;
 
+/// <summary>
+/// Orchestrates the 2D Heads-Up Display (HUD) overlay.
+/// Manages the lifecycle and rendering order of UI elements.
+/// </summary>
 public sealed class HudManager : IDisposable
 {
     private readonly UiRenderer _renderer;
@@ -13,6 +17,7 @@ public sealed class HudManager : IDisposable
     {
         _renderer = new UiRenderer(width, height);
 
+        // --- Element Registration ---
         _elements.Add(new CrosshairElement());
         _elements.Add(new HotbarElement());
     }

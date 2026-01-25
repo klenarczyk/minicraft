@@ -1,7 +1,7 @@
 #version 330 core
-layout (location = 0) in vec3 aPos; // vertex coordinates
-layout (location = 1) in vec2 aTexCoord; // texture coordinates
-layout (location = 2) in float aAO; // ambient occlusion
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec2 aTexCoord;
+layout (location = 2) in float aAO;
 
 out vec2 texCoord;
 out float visibility; // Fog
