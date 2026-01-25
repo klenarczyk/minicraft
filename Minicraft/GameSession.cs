@@ -77,7 +77,7 @@ public class GameSession : IDisposable
 
     private void PopulateInventory()
     {
-        for (BlockId i = 1; i <= 8; i++)
+        for (BlockId i = 1; i <= 9; i++)
             _inventorySystem.AddToInventory(_player.GetComponent<InventoryComponent>(), new ItemStack(i, 5));
     }
 
