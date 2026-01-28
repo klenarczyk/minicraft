@@ -2,7 +2,7 @@
   "parent": "cube_top_bottom",
   "textures": {
     "bottom": "dirt",
-    "top": "grass_block_top",
-    "side": "grass_block_side"
+    "top": "grass_block",
+    "side": "grass_block"
   }
 }
